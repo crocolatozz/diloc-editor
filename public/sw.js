@@ -1,8 +1,9 @@
-const CACHE_NAME = 'pmr-editor-v1.8.0';
+const CACHE_NAME = 'pmr-editor-v1.8.1';
 const CORE_ASSETS = [
   './',
   './index.html',
   './app.js',
+  './CHANGELOG.md',
   './manifest.json',
   './icon.svg',
   './icon-192.png',

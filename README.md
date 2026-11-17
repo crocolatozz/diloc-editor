@@ -1,6 +1,6 @@
 # 📋 PMR Editor — Logsheet DILOC Urea 1B
 
-![Version](https://img.shields.io/badge/version-1.8.0-10b981?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.8.1-10b981?style=flat-square)
 ![Vite](https://img.shields.io/badge/build-Vite-646cff?style=flat-square&logo=vite&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-Offline%20Ready-0ea5e9?style=flat-square)
 ![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android%20%7C%20Web-334155?style=flat-square)

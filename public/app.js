@@ -1,10 +1,10 @@
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.8.1';
 const VERSION_STORAGE_KEY = 'pmr_editor_installed_version';
 const STORAGE_PREFIX = 'pmr_editor_draft_v1_';
 const UPDATE_HIGHLIGHTS = [
-  'Perbaikan mekanisme anti-cache Service Worker dengan fetch no-store untuk update instan di iPhone PWA',
-  'Deteksi pembaruan otomatis saat pageshow (bfcache iOS), visibilitychange, dan saat koneksi online kembali',
-  'Pil versi interaktif di header lengkap dengan modal cek pembaruan & rincian changelog terbaru'
+  'Penambahan workflow resmi GitHub Actions (.github/workflows/deploy.yml) untuk auto-deploy ke GitHub Pages',
+  'Optimasi instalasi dependensi workflow tanpa package-lock.json agar build Vite berjalan stabil di CI',
+  'Caching CHANGELOG.md di CORE_ASSETS Service Worker agar rincian pembaruan tetap tampil saat offline'
 ];
 
 const SVG_ICON_PATHS = {

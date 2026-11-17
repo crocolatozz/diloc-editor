@@ -1,5 +1,13 @@
 # Changelog — PMR Editor
 
+## [v1.8.1] - 2026-11-17 (Bug Fix / Patch)
+- Menambahkan workflow GitHub Actions resmi (`.github/workflows/deploy.yml`) untuk build & auto-deploy ke GitHub Pages setiap push ke branch `main` dengan izin `contents: read`, `pages: write`, dan `id-token: write`.
+- Memastikan build Vite memakai `base: './'` dan menginstal dependensi via `npm install` agar CI tidak gagal akibat ketiadaan `package-lock.json`.
+- Menambahkan `./CHANGELOG.md` ke `CORE_ASSETS` di `public/sw.js` agar rincian pembaruan di modal versi tetap tersedia saat mode offline.
+- Menyinkronkan nomor versi `1.8.1` pada `package.json`, `index.html`, `public/app.js`, `public/sw.js`, `README.md`, dan `CHANGELOG.md`.
+
+---
+
 ## [1.8.0] — Minor Update
 
 ### Perbaikan Anti-Cache & Auto-Update PWA (`public/sw.js` & `public/app.js`)
