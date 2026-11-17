@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pmr-editor-v1.7.0';
+const CACHE_NAME = 'pmr-editor-v1.8.0';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -18,7 +18,18 @@ const CORE_ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(CORE_ASSETS))
+      .then((cache) =>
+        Promise.allSettled(
+          CORE_ASSETS.map(async (asset) => {
+            try {
+              const res = await fetch(new Request(asset, { cache: 'no-store' }));
+              if (res && res.ok) {
+                await cache.put(asset, res.clone());
+              }
+            } catch (_) {}
+          })
+        )
+      )
       .then(() => self.skipWaiting())
   );
 });
@@ -50,7 +61,8 @@ self.addEventListener('fetch', (event) => {
     event.request.mode === 'navigate' ||
     url.pathname.endsWith('.html') ||
     url.pathname.endsWith('.js') ||
-    url.pathname.endsWith('.json');
+    url.pathname.endsWith('.json') ||
+    url.pathname.endsWith('.md');
 
   const fetchReq = isCoreDoc
     ? new Request(event.request, { cache: 'no-store' })

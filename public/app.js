@@ -1,10 +1,10 @@
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.8.0';
 const VERSION_STORAGE_KEY = 'pmr_editor_installed_version';
 const STORAGE_PREFIX = 'pmr_editor_draft_v1_';
 const UPDATE_HIGHLIGHTS = [
-  'Sistem icon SVG berwarna kontekstual menggantikan seluruh emoji',
-  'Polish kedalaman card, border presisi, dan hierarki kontras ala Kolase Foto TPM',
-  'Header modal dan daftar catatan kini memakai tinted icon box yang lebih rapi'
+  'Perbaikan mekanisme anti-cache Service Worker dengan fetch no-store untuk update instan di iPhone PWA',
+  'Deteksi pembaruan otomatis saat pageshow (bfcache iOS), visibilitychange, dan saat koneksi online kembali',
+  'Pil versi interaktif di header lengkap dengan modal cek pembaruan & rincian changelog terbaru'
 ];
 
 const SVG_ICON_PATHS = {
@@ -15,6 +15,7 @@ const SVG_ICON_PATHS = {
   alertOctagon: '<polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
   rocket: '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
   refresh: '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
+  loader: '<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
   fileText: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
   database: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>',
   trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>',
@@ -44,7 +45,12 @@ let loadRequestId = 0;
 let activeModalResolver = null;
 let activeModalDismissValue = null;
 let modalFocusTimer = null;
+let modalCleanupFn = null;
+let swRegistration = null;
+let swHadControllerOnBoot = Boolean('serviceWorker' in navigator && navigator.serviceWorker.controller);
+let manualUpdateState = null;
 let updatePromptShown = false;
+let bgUpdatePromptShown = false;
 
 const OPERATOR_LABELS = {
   operator1: 'Operator 1 (167 Parameter)',
@@ -146,7 +152,7 @@ function syncResponsiveBadgePlacement() {
   }
 }
 
-/* ================= PWA FORCE UPDATE & UPDATE POP-UP CARD ================= */
+/* ================= PWA FORCE UPDATE, VERSION CHECK & UPDATE CARD ================= */
 
 function initPwaForceUpdate() {
   const prevVersion = localStorage.getItem(VERSION_STORAGE_KEY);
@@ -162,10 +168,18 @@ function initPwaForceUpdate() {
   window.addEventListener('load', async () => {
     try {
       const reg = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+      swRegistration = reg;
+
+      const triggerBackgroundSwCheck = () => {
+        if (!navigator.onLine) return;
+        reg.update().catch(() => {});
+      };
 
       if (reg.waiting) {
         reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        showAppUpdateCard({ oldVer: prevVersion || APP_VERSION, newVer: null, isBackgroundUpdate: true });
+        if (!manualUpdateState) {
+          showAppUpdateCard({ oldVer: prevVersion || APP_VERSION, newVer: null, isBackgroundUpdate: true });
+        }
       }
 
       reg.addEventListener('updatefound', () => {
@@ -174,25 +188,46 @@ function initPwaForceUpdate() {
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
             newWorker.postMessage({ type: 'SKIP_WAITING' });
-            showAppUpdateCard({ oldVer: prevVersion || APP_VERSION, newVer: null, isBackgroundUpdate: true });
+            if (!manualUpdateState) {
+              showAppUpdateCard({ oldVer: prevVersion || APP_VERSION, newVer: null, isBackgroundUpdate: true });
+            }
           }
         });
       });
 
       let refreshing = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!swHadControllerOnBoot) {
+          swHadControllerOnBoot = true;
+          return;
+        }
         if (refreshing) return;
         refreshing = true;
+
+        if (manualUpdateState && typeof manualUpdateState.onControllerChanged === 'function') {
+          manualUpdateState.onControllerChanged();
+          return;
+        }
+
+        bgUpdatePromptShown = false;
         showAppUpdateCard({ oldVer: prevVersion || APP_VERSION, newVer: null, isBackgroundUpdate: true });
       });
 
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-          reg.update().catch(() => {});
+          triggerBackgroundSwCheck();
         }
       });
 
-      reg.update().catch(() => {});
+      window.addEventListener('pageshow', () => {
+        triggerBackgroundSwCheck();
+      });
+
+      window.addEventListener('online', () => {
+        triggerBackgroundSwCheck();
+      });
+
+      triggerBackgroundSwCheck();
     } catch (err) {
       console.warn('SW registration skipped:', err.message);
     }
@@ -200,14 +235,19 @@ function initPwaForceUpdate() {
 }
 
 async function showAppUpdateCard({ oldVer, newVer, isBackgroundUpdate = false }) {
-  if (updatePromptShown) return;
-  updatePromptShown = true;
+  if (isBackgroundUpdate) {
+    if (bgUpdatePromptShown) return;
+    bgUpdatePromptShown = true;
+  } else {
+    if (updatePromptShown) return;
+    updatePromptShown = true;
+  }
 
   const title = isBackgroundUpdate
     ? 'Update Terbaru Tersedia'
     : `Update Tersedia (v${newVer})`;
   const intro = isBackgroundUpdate
-    ? 'Versi baru PMR Editor sudah terunduh di latar belakang. Muat ulang sekarang agar tampilan & fitur terbaru langsung aktif.'
+    ? 'Versi baru PMR Editor sudah aktif di latar belakang. Muat ulang sekarang agar tampilan & fitur terbaru langsung diterapkan.'
     : `Versi baru PMR Editor siap digunakan${oldVer && oldVer !== newVer ? ` (pembaruan dari v${oldVer})` : ''}. Muat ulang sekarang agar tampilan & fitur terbaru langsung aktif.`;
 
   const choice = await showModal({
@@ -231,6 +271,410 @@ async function showAppUpdateCard({ oldVer, newVer, isBackgroundUpdate = false })
   if (choice === 'reload') {
     window.location.reload();
   }
+}
+
+function parseLatestChangelogBullets(markdownText) {
+  if (!markdownText || typeof markdownText !== 'string') return [];
+  const lines = markdownText.split(/\r?\n/);
+  let inLatestSection = false;
+  const bullets = [];
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (/^##\s+\[/.test(line)) {
+      if (inLatestSection) break;
+      inLatestSection = true;
+      continue;
+    }
+    if (!inLatestSection) continue;
+    if (line === '---') break;
+
+    if (/^-\s+/.test(line) && !rawLine.startsWith('  ')) {
+      const cleaned = line
+        .replace(/^-\s+/, '')
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/`([^`]+)`/g, '$1')
+        .trim();
+      if (cleaned) bullets.push(cleaned);
+      if (bullets.length >= 4) break;
+    }
+  }
+  return bullets;
+}
+
+async function fetchLatestChangelogBullets() {
+  try {
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const abortTimer = controller ? setTimeout(() => controller.abort(), 4000) : null;
+    const res = await fetch('./CHANGELOG.md', {
+      cache: 'no-store',
+      signal: controller ? controller.signal : undefined
+    });
+    if (abortTimer) clearTimeout(abortTimer);
+    if (!res || !res.ok) return UPDATE_HIGHLIGHTS;
+    const text = await res.text();
+    const parsed = parseLatestChangelogBullets(text);
+    return parsed.length > 0 ? parsed : UPDATE_HIGHLIGHTS;
+  } catch (_) {
+    return UPDATE_HIGHLIGHTS;
+  }
+}
+
+function getServiceWorkerStatusSummary(reg) {
+  const swSupported = 'serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:');
+  if (!swSupported) {
+    return { label: 'Mode Lokal / Non-SW', tone: 'amber' };
+  }
+  if (reg && reg.waiting) {
+    return { label: 'Update Menunggu Reload', tone: 'sky' };
+  }
+  if (reg && reg.installing) {
+    return { label: 'Mengunduh Update...', tone: 'sky' };
+  }
+  if ((reg && reg.active) || navigator.serviceWorker.controller) {
+    return { label: 'Aktif & Siap Offline', tone: 'emerald' };
+  }
+  return { label: 'Menyiapkan Cache...', tone: 'amber' };
+}
+
+function renderModalBulletsList(ulEl, bullets, bulletVariant = 'success') {
+  if (!ulEl) return;
+  const iconName = bulletVariant === 'success'
+    ? 'check'
+    : (bulletVariant === 'danger' ? 'alertOctagon' : (bulletVariant === 'info' ? 'info' : 'alertTriangle'));
+  ulEl.innerHTML = '';
+  bullets.forEach((bText) => {
+    const li = document.createElement('li');
+    const bulletIconBox = document.createElement('span');
+    bulletIconBox.className = `modal-bullet-icon ${bulletVariant}`;
+    bulletIconBox.setAttribute('aria-hidden', 'true');
+    bulletIconBox.appendChild(createSvgIcon(iconName, 13));
+
+    const bulletTextSpan = document.createElement('span');
+    bulletTextSpan.className = 'modal-bullet-text';
+    bulletTextSpan.textContent = bText;
+
+    li.appendChild(bulletIconBox);
+    li.appendChild(bulletTextSpan);
+    ulEl.appendChild(li);
+  });
+}
+
+async function openVersionCheckModal() {
+  triggerHaptic(10);
+  if (activeModalResolver) {
+    closeModal(activeModalDismissValue);
+  }
+
+  const overlay = document.getElementById('appModalOverlay');
+  const card = document.getElementById('appModalCard');
+  const iconEl = document.getElementById('modalIcon');
+  const titleEl = document.getElementById('modalTitle');
+  const bodyEl = document.getElementById('modalBody');
+  const actionsEl = document.getElementById('modalActions');
+  if (!overlay || !iconEl || !titleEl || !bodyEl || !actionsEl) return;
+
+  if (card) card.classList.add('update-card');
+  iconEl.className = 'modal-icon success';
+  iconEl.innerHTML = '';
+  iconEl.appendChild(createSvgIcon('refresh', 21));
+  titleEl.textContent = 'Info Versi & Pembaruan';
+
+  let activeReg = swRegistration;
+  if (!activeReg && 'serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
+    try {
+      activeReg = (await navigator.serviceWorker.getRegistration('./')) || (await navigator.serviceWorker.getRegistration());
+      if (activeReg) swRegistration = activeReg;
+    } catch (_) {}
+  }
+
+  const swStatus = getServiceWorkerStatusSummary(activeReg);
+  const isOnline = navigator.onLine;
+
+  bodyEl.innerHTML = '';
+
+  const metaCard = document.createElement('div');
+  metaCard.className = 'version-meta-card';
+
+  const makeMetaRow = (label, valueText, toneClass = '') => {
+    const row = document.createElement('div');
+    row.className = 'version-meta-row';
+    const lbl = document.createElement('span');
+    lbl.className = 'version-meta-label';
+    lbl.textContent = label;
+    const val = document.createElement('span');
+    val.className = toneClass ? `version-meta-val ${toneClass}` : 'version-meta-val';
+    val.textContent = valueText;
+    row.appendChild(lbl);
+    row.appendChild(val);
+    return { row, val };
+  };
+
+  metaCard.appendChild(makeMetaRow('Versi Terpasang', `v${APP_VERSION}`, 'emerald').row);
+  metaCard.appendChild(makeMetaRow('Status Koneksi', isOnline ? 'Online' : 'Offline', isOnline ? 'emerald' : 'amber').row);
+  const swRowObj = makeMetaRow('Service Worker', swStatus.label, swStatus.tone);
+  metaCard.appendChild(swRowObj.row);
+  bodyEl.appendChild(metaCard);
+
+  const sectionLabel = document.createElement('div');
+  sectionLabel.className = 'version-section-label';
+  sectionLabel.textContent = `Pembaruan Terbaru (v${APP_VERSION})`;
+  bodyEl.appendChild(sectionLabel);
+
+  const changelogUl = document.createElement('ul');
+  changelogUl.className = 'modal-bullets success-list';
+  renderModalBulletsList(changelogUl, UPDATE_HIGHLIGHTS, 'success');
+  bodyEl.appendChild(changelogUl);
+
+  const statusBanner = document.createElement('div');
+  statusBanner.className = 'version-check-banner';
+  statusBanner.setAttribute('aria-live', 'polite');
+  bodyEl.appendChild(statusBanner);
+
+  actionsEl.innerHTML = '';
+  actionsEl.className = 'modal-actions';
+
+  const checkBtn = document.createElement('button');
+  checkBtn.type = 'button';
+  checkBtn.className = 'btn btn-primary';
+  const setCheckBtnState = (loading, labelText) => {
+    checkBtn.disabled = loading;
+    checkBtn.innerHTML = '';
+    checkBtn.appendChild(createSvgIcon(loading ? 'loader' : 'refresh', 16, loading ? 'svg-spin' : ''));
+    const lbl = document.createElement('span');
+    lbl.textContent = labelText;
+    checkBtn.appendChild(lbl);
+  };
+  setCheckBtnState(false, 'Cek & Perbarui Aplikasi');
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'btn btn-ghost';
+  closeBtn.textContent = 'Tutup';
+  closeBtn.addEventListener('click', () => {
+    triggerHaptic(10);
+    closeModal('close');
+  });
+
+  actionsEl.appendChild(checkBtn);
+  actionsEl.appendChild(closeBtn);
+
+  let isDisposed = false;
+  let isChecking = false;
+  let timeoutId = null;
+  let updateGraceId = null;
+  let reloadFallbackId = null;
+  let watchedWorker = null;
+  let watchedWorkerHandler = null;
+  let updateFoundTarget = null;
+  let updateFoundHandler = null;
+
+  const setBanner = (variant, iconName, message, spinning = false) => {
+    if (isDisposed) return;
+    statusBanner.className = `version-check-banner visible ${variant}`;
+    statusBanner.innerHTML = '';
+    statusBanner.appendChild(createSvgIcon(iconName, 16, spinning ? 'svg-spin' : ''));
+    const msgSpan = document.createElement('span');
+    msgSpan.textContent = message;
+    statusBanner.appendChild(msgSpan);
+  };
+
+  const cleanupVersionCheck = () => {
+    isDisposed = true;
+    manualUpdateState = null;
+    if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
+    if (updateGraceId) { clearTimeout(updateGraceId); updateGraceId = null; }
+    if (reloadFallbackId) { clearTimeout(reloadFallbackId); reloadFallbackId = null; }
+    if (watchedWorker && watchedWorkerHandler) {
+      watchedWorker.removeEventListener('statechange', watchedWorkerHandler);
+    }
+    if (updateFoundTarget && updateFoundHandler) {
+      updateFoundTarget.removeEventListener('updatefound', updateFoundHandler);
+    }
+  };
+
+  const finishWithResult = (variant, iconName, message, btnLabel = 'Cek & Perbarui Aplikasi') => {
+    if (isDisposed) return;
+    isChecking = false;
+    manualUpdateState = null;
+    if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
+    if (updateGraceId) { clearTimeout(updateGraceId); updateGraceId = null; }
+    setCheckBtnState(false, btnLabel);
+    setBanner(variant, iconName, message, false);
+  };
+
+  let isReloading = false;
+  const performCleanReload = () => {
+    if (isDisposed || isReloading) return;
+    isReloading = true;
+    if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
+    if (reloadFallbackId) { clearTimeout(reloadFallbackId); reloadFallbackId = null; }
+    setBanner('success', 'checkCircle', 'Pembaruan diterapkan! Memuat ulang aplikasi...');
+    setCheckBtnState(true, 'Memuat ulang...');
+    setTimeout(() => {
+      if (!isDisposed) window.location.reload();
+    }, 450);
+  };
+
+  const activateWaitingWorker = (worker) => {
+    if (!worker || isDisposed) return;
+    setCheckBtnState(true, 'Memperbarui...');
+    setBanner('success', 'checkCircle', 'Pembaruan siap! Menerapkan versi terbaru...');
+    manualUpdateState = {
+      onControllerChanged: () => {
+        performCleanReload();
+      }
+    };
+    swRowObj.val.textContent = 'Menerapkan Update...';
+    swRowObj.val.className = 'version-meta-val sky';
+    worker.postMessage({ type: 'SKIP_WAITING' });
+    reloadFallbackId = setTimeout(() => {
+      performCleanReload();
+    }, 2500);
+  };
+
+  const attachWorkerWatcher = (worker) => {
+    if (!worker || isDisposed) return;
+    if (watchedWorker && watchedWorkerHandler) {
+      watchedWorker.removeEventListener('statechange', watchedWorkerHandler);
+    }
+    watchedWorker = worker;
+    setCheckBtnState(true, 'Memperbarui...');
+    setBanner('info', 'loader', 'Pembaruan ditemukan, mengunduh aset terbaru...', true);
+    swRowObj.val.textContent = 'Mengunduh Update...';
+    swRowObj.val.className = 'version-meta-val sky';
+
+    watchedWorkerHandler = () => {
+      if (isDisposed) return;
+      if (worker.state === 'installed') {
+        if (navigator.serviceWorker.controller) {
+          activateWaitingWorker(worker);
+        } else {
+          finishWithResult('success', 'checkCircle', `Cache offline siap digunakan (v${APP_VERSION}).`);
+        }
+      } else if (worker.state === 'redundant') {
+        finishWithResult('danger', 'alertOctagon', 'Instalasi pembaruan gagal atau dibatalkan. Silakan coba lagi.');
+      }
+    };
+    worker.addEventListener('statechange', watchedWorkerHandler);
+  };
+
+  checkBtn.addEventListener('click', async () => {
+    if (isChecking || isDisposed) return;
+    triggerHaptic(10);
+    isChecking = true;
+    setCheckBtnState(true, 'Memeriksa...');
+    setBanner('info', 'loader', 'Memeriksa pembaruan terbaru di server...', true);
+
+    timeoutId = setTimeout(() => {
+      if (isChecking && !isDisposed) {
+        finishWithResult('warning', 'alertTriangle', 'Pemeriksaan melebihi batas waktu 30 detik. Pastikan jaringan stabil lalu coba lagi.');
+      }
+    }, 30000);
+
+    if (!navigator.onLine) {
+      finishWithResult('danger', 'alertOctagon', 'Perangkat sedang offline. Aktifkan internet untuk memeriksa pembaruan.');
+      return;
+    }
+
+    const swSupported = 'serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:');
+    if (!swSupported) {
+      finishWithResult('danger', 'alertOctagon', 'Service Worker tidak tersedia di mode lokal/file://.');
+      return;
+    }
+
+    try {
+      let reg = activeReg || swRegistration || (await navigator.serviceWorker.getRegistration('./')) || (await navigator.serviceWorker.getRegistration());
+      if (!reg) {
+        reg = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+      }
+      if (isDisposed || !isChecking) return;
+      activeReg = reg;
+      swRegistration = reg;
+
+      if (reg.waiting) {
+        activateWaitingWorker(reg.waiting);
+        return;
+      }
+
+      if (reg.installing) {
+        attachWorkerWatcher(reg.installing);
+        return;
+      }
+
+      let foundUpdate = false;
+      if (updateFoundTarget && updateFoundHandler) {
+        updateFoundTarget.removeEventListener('updatefound', updateFoundHandler);
+      }
+      updateFoundTarget = reg;
+      updateFoundHandler = () => {
+        if (isDisposed || foundUpdate) return;
+        const candidate = reg.installing || reg.waiting;
+        if (candidate) {
+          foundUpdate = true;
+          if (reg.waiting && !reg.installing) {
+            activateWaitingWorker(reg.waiting);
+          } else {
+            attachWorkerWatcher(candidate);
+          }
+        }
+      };
+      reg.addEventListener('updatefound', updateFoundHandler);
+
+      await reg.update();
+      if (isDisposed || !isChecking) return;
+
+      if (reg.waiting) {
+        foundUpdate = true;
+        activateWaitingWorker(reg.waiting);
+        return;
+      }
+
+      if (reg.installing) {
+        foundUpdate = true;
+        attachWorkerWatcher(reg.installing);
+        return;
+      }
+
+      updateGraceId = setTimeout(() => {
+        if (isDisposed || foundUpdate || !isChecking) return;
+        if (reg.waiting) {
+          activateWaitingWorker(reg.waiting);
+          return;
+        }
+        if (reg.installing) {
+          attachWorkerWatcher(reg.installing);
+          return;
+        }
+        swRowObj.val.textContent = 'Aktif & Mutakhir';
+        swRowObj.val.className = 'version-meta-val emerald';
+        finishWithResult('success', 'checkCircle', `Aplikasi sudah menggunakan versi terbaru (v${APP_VERSION}).`);
+      }, 250);
+    } catch (err) {
+      if (isDisposed || !isChecking) return;
+      finishWithResult('danger', 'alertOctagon', `Gagal memeriksa pembaruan: ${err && err.message ? err.message : 'kesalahan jaringan'}.`);
+    }
+  });
+
+  modalCleanupFn = cleanupVersionCheck;
+  activeModalDismissValue = 'close';
+
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+  modalFocusTimer = setTimeout(() => {
+    modalFocusTimer = null;
+    checkBtn.focus();
+  }, 30);
+
+  fetchLatestChangelogBullets().then((bullets) => {
+    if (!isDisposed && bullets && bullets.length > 0) {
+      renderModalBulletsList(changelogUl, bullets, 'success');
+    }
+  });
+
+  return new Promise((resolve) => {
+    activeModalResolver = resolve;
+  });
 }
 
 /* ================= CUSTOM MODAL ENGINE ================= */
@@ -257,6 +701,11 @@ function closeModal(resultValue) {
   if (modalFocusTimer) {
     clearTimeout(modalFocusTimer);
     modalFocusTimer = null;
+  }
+  if (typeof modalCleanupFn === 'function') {
+    const cleanup = modalCleanupFn;
+    modalCleanupFn = null;
+    cleanup();
   }
   const overlay = document.getElementById('appModalOverlay');
   const card = document.getElementById('appModalCard');
