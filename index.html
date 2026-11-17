@@ -28,6 +28,8 @@
       --text-muted: #94a3b8;
       --border-color: #334155;
       --excel-border: #475569;
+      --ios-top-clearance: env(safe-area-inset-top, 0px);
+      --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     * {
@@ -59,7 +61,7 @@
     body {
       background-color: var(--bg-primary);
       color: var(--text-main);
-      padding-top: calc(env(safe-area-inset-top, 0px) + 14px);
+      padding-top: calc(var(--ios-top-clearance) + 12px);
       padding-right: max(14px, env(safe-area-inset-right, 0px));
       padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
       padding-left: max(14px, env(safe-area-inset-left, 0px));
@@ -76,7 +78,7 @@
       top: 0;
       left: 0;
       right: 0;
-      height: env(safe-area-inset-top, 0px);
+      height: var(--ios-top-clearance);
       background-color: var(--bg-primary);
       z-index: 30;
       pointer-events: none;
@@ -89,6 +91,13 @@
       flex: 1;
       display: flex;
       flex-direction: column;
+      opacity: 1;
+      transition: opacity 0.22s var(--ease-spring);
+      animation: appFadeIn 0.28s var(--ease-spring);
+    }
+
+    body.page-leaving .app-container {
+      opacity: 0;
     }
 
     header {
@@ -165,6 +174,7 @@
     }
 
     .version-badge {
+      position: relative;
       font-size: 0.72rem;
       font-weight: 700;
       background: rgba(16, 185, 129, 0.14);
@@ -178,11 +188,26 @@
       gap: 5px;
       cursor: pointer;
       outline: none;
-      transition: background-color 0.16s ease, border-color 0.16s ease, transform 0.1s ease, box-shadow 0.16s ease;
+      transition: background-color 0.18s var(--ease-spring), border-color 0.18s var(--ease-spring), transform 0.14s var(--ease-spring), box-shadow 0.18s var(--ease-spring);
     }
 
     .version-badge:active {
-      transform: scale(0.96);
+      transform: scale(0.97);
+    }
+
+    .version-notif-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background-color: #f59e0b;
+      box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.9), 0 0 8px rgba(245, 158, 11, 0.65);
+      display: none;
+      flex-shrink: 0;
+    }
+
+    .version-notif-dot.visible {
+      display: inline-block;
+      animation: notifPulse 1.8s ease-in-out infinite;
     }
 
     .version-badge:focus-visible {
@@ -449,7 +474,13 @@
       line-height: 0;
       border-radius: 6px;
       display: none;
-      transition: color 0.15s ease, background-color 0.15s ease;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.15s ease, background-color 0.15s ease, transform 0.12s var(--ease-spring);
+    }
+
+    .clear-search-btn:active {
+      transform: translateY(-50%) scale(0.9);
     }
 
     .clear-search-btn:hover {
@@ -469,13 +500,13 @@
       align-items: center;
       justify-content: center;
       gap: 7px;
-      transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease, transform 0.1s ease;
+      transition: background-color 0.18s var(--ease-spring), border-color 0.18s var(--ease-spring), color 0.18s var(--ease-spring), box-shadow 0.18s var(--ease-spring), transform 0.14s var(--ease-spring);
       text-decoration: none;
       white-space: nowrap;
     }
 
     .btn:active {
-      transform: scale(0.98);
+      transform: scale(0.97);
     }
 
     .btn-primary {
@@ -589,7 +620,7 @@
     /* Sticky Quick Utility Toolbar */
     .quick-toolbar {
       position: sticky;
-      top: env(safe-area-inset-top, 0px);
+      top: var(--ios-top-clearance);
       z-index: 20;
       display: flex;
       flex-wrap: wrap;
@@ -677,6 +708,8 @@
       border-radius: 12px;
       box-shadow: 0 8px 26px rgba(2, 6, 23, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.03);
       margin-bottom: 18px;
+      opacity: 1;
+      transition: opacity 0.2s var(--ease-spring);
     }
 
     .excel-table {
@@ -731,6 +764,12 @@
       box-shadow: 0 8px 26px rgba(2, 6, 23, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.03);
       margin-bottom: 18px;
       overflow: hidden;
+      opacity: 1;
+      transition: opacity 0.2s var(--ease-spring);
+    }
+
+    .table-fade-switching {
+      opacity: 0.42;
     }
 
     .vertical-table {
@@ -757,8 +796,8 @@
     .vertical-table tbody tr {
       border-bottom: 1px solid var(--border-color);
       background-color: #162033;
-      transition: background-color 0.12s;
-      scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 128px);
+      transition: background-color 0.14s ease;
+      scroll-margin-top: calc(var(--ios-top-clearance) + 128px);
     }
 
     .vertical-table tbody tr:nth-child(even) {
@@ -891,15 +930,20 @@
       background: rgba(2, 6, 23, 0.78);
       backdrop-filter: blur(4px);
       -webkit-backdrop-filter: blur(4px);
-      display: none;
+      display: flex;
       align-items: center;
       justify-content: center;
       padding: 16px;
-      animation: fadeIn 0.15s ease-out;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.22s var(--ease-spring), visibility 0.22s;
     }
 
     .modal-overlay.open {
-      display: flex;
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
     }
 
     .modal-card {
@@ -910,7 +954,14 @@
       max-width: 440px;
       box-shadow: 0 24px 56px rgba(2, 6, 23, 0.72), inset 0 1px 0 rgba(255, 255, 255, 0.05);
       overflow: hidden;
-      animation: popUp 0.18s ease-out;
+      opacity: 0;
+      transform: translateY(12px) scale(0.96);
+      transition: transform 0.28s var(--ease-spring), opacity 0.22s var(--ease-spring);
+    }
+
+    .modal-overlay.open .modal-card {
+      opacity: 1;
+      transform: translateY(0) scale(1);
     }
 
     .modal-card.update-card {
@@ -1146,6 +1197,251 @@
       animation: spin360 0.85s linear infinite;
     }
 
+    .changelog-acc-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .changelog-acc-item {
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(71, 85, 105, 0.55);
+      border-radius: 10px;
+      overflow: hidden;
+      transition: border-color 0.2s var(--ease-spring);
+    }
+
+    .changelog-acc-item.open {
+      border-color: rgba(16, 185, 129, 0.42);
+    }
+
+    .changelog-acc-header {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text-main);
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      cursor: pointer;
+      text-align: left;
+      font-size: 0.82rem;
+      font-weight: 700;
+      transition: background-color 0.16s ease;
+    }
+
+    .changelog-acc-header:active {
+      background: rgba(51, 65, 85, 0.45);
+    }
+
+    .changelog-acc-title-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+
+    .changelog-acc-ver {
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.16);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.36);
+    }
+
+    .changelog-acc-meta {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .changelog-acc-chevron {
+      color: var(--text-muted);
+      transition: transform 0.26s var(--ease-spring), color 0.2s ease;
+    }
+
+    .changelog-acc-item.open .changelog-acc-chevron {
+      transform: rotate(180deg);
+      color: #34d399;
+    }
+
+    .changelog-acc-panel {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.28s var(--ease-spring);
+    }
+
+    .changelog-acc-item.open .changelog-acc-panel {
+      grid-template-rows: 1fr;
+    }
+
+    .changelog-acc-inner {
+      overflow: hidden;
+    }
+
+    .changelog-acc-bullets {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      padding: 9px 12px 11px;
+      border-top: 1px solid rgba(71, 85, 105, 0.38);
+    }
+
+    .changelog-acc-bullets li {
+      font-size: 0.8rem;
+      color: #e2e8f0;
+      line-height: 1.44;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    /* TOAST NOTIFICATION (3 VARIANTS, SMART REPLACE, TAP TO DISMISS) */
+    .toast-region {
+      position: fixed;
+      top: calc(var(--ios-top-clearance) + 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1100;
+      width: min(calc(100% - 24px), 420px);
+      display: flex;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .app-toast {
+      pointer-events: auto;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 13px;
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.96);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(71, 85, 105, 0.72);
+      box-shadow: 0 14px 34px rgba(2, 6, 23, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      color: var(--text-main);
+      font-size: 0.82rem;
+      font-weight: 500;
+      line-height: 1.38;
+      cursor: pointer;
+      opacity: 0;
+      transform: translateY(-14px) scale(0.96);
+      transition: opacity 0.24s var(--ease-spring), transform 0.28s var(--ease-spring);
+    }
+
+    .app-toast.visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    .app-toast.leaving {
+      opacity: 0;
+      transform: translateY(-10px) scale(0.96);
+    }
+
+    .app-toast:active {
+      transform: scale(0.97);
+    }
+
+    .app-toast.success {
+      border-color: rgba(16, 185, 129, 0.52);
+      box-shadow: 0 14px 34px rgba(16, 185, 129, 0.14), 0 8px 22px rgba(2, 6, 23, 0.65);
+    }
+
+    .app-toast.warning {
+      border-color: rgba(245, 158, 11, 0.55);
+      box-shadow: 0 14px 34px rgba(245, 158, 11, 0.14), 0 8px 22px rgba(2, 6, 23, 0.65);
+    }
+
+    .app-toast.error {
+      border-color: rgba(239, 68, 68, 0.55);
+      box-shadow: 0 14px 34px rgba(239, 68, 68, 0.16), 0 8px 22px rgba(2, 6, 23, 0.65);
+    }
+
+    .app-toast-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .app-toast.success .app-toast-icon {
+      background: rgba(16, 185, 129, 0.16);
+      border: 1px solid rgba(16, 185, 129, 0.38);
+      color: #34d399;
+    }
+
+    .app-toast.warning .app-toast-icon {
+      background: rgba(245, 158, 11, 0.16);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: #fbbf24;
+    }
+
+    .app-toast.error .app-toast-icon {
+      background: rgba(239, 68, 68, 0.16);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+    }
+
+    .app-toast-msg {
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* FLOATING SCROLL TO TOP BUTTON */
+    .scroll-top-btn {
+      position: fixed;
+      right: max(16px, env(safe-area-inset-right, 0px));
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+      z-index: 900;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(30, 41, 59, 0.94);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(71, 85, 105, 0.72);
+      color: #34d399;
+      box-shadow: 0 10px 26px rgba(2, 6, 23, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(14px) scale(0.92);
+      transition: opacity 0.24s var(--ease-spring), transform 0.28s var(--ease-spring), visibility 0.24s, border-color 0.16s ease, background-color 0.16s ease;
+    }
+
+    .scroll-top-btn.visible {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0) scale(1);
+    }
+
+    .scroll-top-btn:active {
+      transform: scale(0.94);
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      .scroll-top-btn:hover {
+        border-color: var(--accent);
+        background: rgba(16, 185, 129, 0.14);
+      }
+    }
+
     .modal-actions {
       display: flex;
       flex-direction: column;
@@ -1169,14 +1465,14 @@
       min-width: 104px;
     }
 
-    @keyframes fadeIn {
+    @keyframes appFadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
     }
 
-    @keyframes popUp {
-      from { opacity: 0; transform: translateY(8px) scale(0.97); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
+    @keyframes notifPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.22); opacity: 0.78; }
     }
 
     @keyframes spin360 {
@@ -1215,15 +1511,19 @@
 
     /* Mobile Responsive Refinements */
     @media (max-width: 767px) {
+      :root {
+        --ios-top-clearance: calc(env(safe-area-inset-top, 0px) + 18px);
+      }
+
       body {
-        padding-top: calc(env(safe-area-inset-top, 0px) + 26px);
+        padding-top: calc(var(--ios-top-clearance) + 12px);
         padding-right: max(10px, env(safe-area-inset-right, 0px));
         padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
         padding-left: max(10px, env(safe-area-inset-left, 0px));
       }
 
       body::before {
-        height: calc(env(safe-area-inset-top, 0px) + 12px);
+        height: var(--ios-top-clearance);
       }
 
       header {
@@ -1332,7 +1632,7 @@
       }
 
       .quick-toolbar {
-        top: calc(env(safe-area-inset-top, 0px) + 12px);
+        top: var(--ios-top-clearance);
         background-color: rgba(15, 23, 42, 0.98);
         padding: 8px 10px;
         border-radius: 0 0 10px 10px;
@@ -1409,11 +1709,12 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 12h6"/><path d="M9 16h6"/></svg>
           </span>
           <span>PMR Editor</span>
-          <button type="button" id="versionBadgeBtn" class="version-badge" role="button" tabindex="0" title="Cek versi &amp; pembaruan aplikasi" aria-label="Versi 1.8.1 — Cek pembaruan aplikasi" onclick="openVersionCheckModal()">
-            <span>v1.8.1</span>
+          <button type="button" id="versionBadgeBtn" class="version-badge" role="button" tabindex="0" title="Cek versi &amp; pembaruan aplikasi" aria-label="Versi 1.9.0 — Cek pembaruan aplikasi" onclick="openVersionCheckModal()">
+            <span>v1.9.0</span>
             <span class="ui-icon icon-emerald" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
             </span>
+            <span id="versionNotifDot" class="version-notif-dot" aria-hidden="true"></span>
           </button>
           <span id="offlineBadge" class="offline-pill">
             <span class="offline-pill-inner">
@@ -1514,11 +1815,11 @@
           </span>
           <span>Share</span>
         </button>
-        <button type="button" class="btn btn-ghost" onclick="jumpToNextEmpty()">
+        <button type="button" id="nextEmptyBtn" class="btn btn-ghost" onclick="jumpToNextEmpty()">
           <span class="ui-icon" aria-hidden="true">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </span>
-          <span>Sel Kosong</span>
+          <span id="nextEmptyBtnText">Sel Kosong</span>
         </button>
         <button type="button" class="btn btn-danger-ghost" onclick="resetFormConfirm()">
           <span class="ui-icon" aria-hidden="true">
@@ -1583,6 +1884,14 @@
     </div>
   </div>
 
-  <script src="app.js?v=1.8.1"></script>
+  <!-- Toast Region -->
+  <div id="appToastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Floating Scroll to Top -->
+  <button type="button" id="scrollTopBtn" class="scroll-top-btn" aria-label="Kembali ke atas" title="Kembali ke atas" onclick="scrollToTopSmooth()">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+  </button>
+
+  <script src="app.js?v=1.9.0"></script>
 </body>
 </html>

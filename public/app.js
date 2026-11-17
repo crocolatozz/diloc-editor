@@ -1,10 +1,12 @@
-const APP_VERSION = '1.8.1';
+const APP_VERSION = '1.9.0';
 const VERSION_STORAGE_KEY = 'pmr_editor_installed_version';
+const POST_UPDATE_TOAST_KEY = 'pmr_editor_post_update_reload';
 const STORAGE_PREFIX = 'pmr_editor_draft_v1_';
 const UPDATE_HIGHLIGHTS = [
-  'Penambahan workflow resmi GitHub Actions (.github/workflows/deploy.yml) untuk auto-deploy ke GitHub Pages',
-  'Optimasi instalasi dependensi workflow tanpa package-lock.json agar build Vite berjalan stabil di CI',
-  'Caching CHANGELOG.md di CORE_ASSETS Service Worker agar rincian pembaruan tetap tampil saat offline'
+  'Sistem Toast Notification 3-varian bergaya Kolase Foto TPM dengan smart replace & tap-to-dismiss',
+  'Pengaman konfirmasi sebelum menimpa draft saat import serta counter & modal cek sel kosong sebelum export',
+  'Navigasi keyboard Enter/Next presisi di bawah sticky toolbar, tombol Scroll-to-Top, dan changelog accordion',
+  'Pembanding versi sekunder public/version.json dengan titik notifikasi di pil versi & transisi anti-flicker iOS'
 ];
 
 const SVG_ICON_PATHS = {
@@ -16,6 +18,7 @@ const SVG_ICON_PATHS = {
   rocket: '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
   refresh: '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
   loader: '<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
+  chevronDown: '<polyline points="6 9 12 15 18 9"/>',
   fileText: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
   database: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>',
   trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>',
@@ -51,6 +54,15 @@ let swHadControllerOnBoot = Boolean('serviceWorker' in navigator && navigator.se
 let manualUpdateState = null;
 let updatePromptShown = false;
 let bgUpdatePromptShown = false;
+let bgUpdateToastShown = false;
+let pendingRemoteVersion = null;
+let lastRemoteCheckAt = 0;
+let isReloadScheduled = false;
+let activeToastTimer = null;
+let activeToastRemoveTimer = null;
+let activeToastEl = null;
+let searchNoMatchToastTimer = null;
+let lastSearchNoMatchQuery = '';
 
 const OPERATOR_LABELS = {
   operator1: 'Operator 1 (167 Parameter)',
@@ -65,9 +77,11 @@ const OPERATOR_SHORT_NAMES = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+  document.body.classList.remove('page-leaving');
   const defaultOp = document.getElementById('selectOperator').value || 'operator1';
   setupNativeTouchGuards();
   setupModalEvents();
+  setupScrollTopButton();
   syncResponsiveBadgePlacement();
   updateOnlineStatusUI();
   updateLayoutContainerVisibility();
@@ -152,14 +166,211 @@ function syncResponsiveBadgePlacement() {
   }
 }
 
-/* ================= PWA FORCE UPDATE, VERSION CHECK & UPDATE CARD ================= */
+/* ================= TOAST NOTIFICATION & ANTI-FLICKER TRANSITIONS ================= */
+
+function dismissActiveToast(immediate = false) {
+  if (activeToastTimer) {
+    clearTimeout(activeToastTimer);
+    activeToastTimer = null;
+  }
+  if (activeToastRemoveTimer) {
+    clearTimeout(activeToastRemoveTimer);
+    activeToastRemoveTimer = null;
+  }
+  if (!activeToastEl) return;
+  const el = activeToastEl;
+  activeToastEl = null;
+  if (immediate) {
+    if (el.parentNode) el.parentNode.removeChild(el);
+    return;
+  }
+  el.classList.remove('visible');
+  el.classList.add('leaving');
+  activeToastRemoveTimer = setTimeout(() => {
+    activeToastRemoveTimer = null;
+    if (el.parentNode) el.parentNode.removeChild(el);
+  }, 240);
+}
+
+function showToast(message, variant = 'success', duration = 3400) {
+  const region = document.getElementById('appToastRegion');
+  if (!region || !message) return;
+
+  // Smart replace: remove any active toast immediately so table is never stacked over
+  dismissActiveToast(true);
+
+  const safeVariant = ['success', 'warning', 'error'].includes(variant) ? variant : 'success';
+  const iconName = safeVariant === 'success'
+    ? 'checkCircle'
+    : (safeVariant === 'warning' ? 'alertTriangle' : 'alertOctagon');
+
+  const toast = document.createElement('div');
+  toast.className = `app-toast ${safeVariant}`;
+  toast.setAttribute('role', safeVariant === 'error' ? 'alert' : 'status');
+  toast.title = 'Ketuk untuk menutup notifikasi';
+
+  const iconBox = document.createElement('span');
+  iconBox.className = 'app-toast-icon';
+  iconBox.setAttribute('aria-hidden', 'true');
+  iconBox.appendChild(createSvgIcon(iconName, 16));
+
+  const msgSpan = document.createElement('span');
+  msgSpan.className = 'app-toast-msg';
+  msgSpan.textContent = message;
+
+  toast.appendChild(iconBox);
+  toast.appendChild(msgSpan);
+  toast.addEventListener('click', () => {
+    triggerHaptic(8);
+    dismissActiveToast(false);
+  });
+
+  region.appendChild(toast);
+  activeToastEl = toast;
+
+  requestAnimationFrame(() => {
+    if (activeToastEl === toast) {
+      toast.classList.add('visible');
+    }
+  });
+
+  if (duration > 0) {
+    activeToastTimer = setTimeout(() => {
+      if (activeToastEl === toast) {
+        dismissActiveToast(false);
+      }
+    }, duration);
+  }
+}
+
+function setupScrollTopButton() {
+  const btn = document.getElementById('scrollTopBtn');
+  if (!btn) return;
+  const syncScrollBtn = () => {
+    const show = window.scrollY > 320;
+    btn.classList.toggle('visible', show);
+  };
+  window.addEventListener('scroll', syncScrollBtn, { passive: true });
+  syncScrollBtn();
+}
+
+function scrollToTopSmooth() {
+  triggerHaptic(10);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function fadeOutAndReload() {
+  if (isReloadScheduled) return;
+  isReloadScheduled = true;
+  try {
+    sessionStorage.setItem(POST_UPDATE_TOAST_KEY, '1');
+  } catch (_) {}
+  document.body.classList.add('page-leaving');
+  setTimeout(() => {
+    window.location.reload();
+  }, 240);
+}
+
+window.addEventListener('pageshow', () => {
+  isReloadScheduled = false;
+  document.body.classList.remove('page-leaving');
+});
+
+/* ================= PWA FORCE UPDATE, VERSION CHECK & ACCORDION ================= */
+
+function compareSemver(verA, verB) {
+  const parse = (v) => String(v || '0.0.0')
+    .replace(/^v/i, '')
+    .split('.')
+    .slice(0, 3)
+    .map((n) => {
+      const num = parseInt(n, 10);
+      return Number.isFinite(num) ? num : 0;
+    });
+  const a = parse(verA);
+  const b = parse(verB);
+  for (let i = 0; i < 3; i++) {
+    const diff = (a[i] || 0) - (b[i] || 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+function setVersionNotifDot(visible, remoteVer = '') {
+  const dot = document.getElementById('versionNotifDot');
+  const btn = document.getElementById('versionBadgeBtn');
+  if (dot) dot.classList.toggle('visible', Boolean(visible));
+  if (btn) {
+    btn.setAttribute(
+      'aria-label',
+      visible && remoteVer
+        ? `Versi ${APP_VERSION} — Pembaruan v${remoteVer} tersedia`
+        : `Versi ${APP_VERSION} — Cek pembaruan aplikasi`
+    );
+    btn.title = visible && remoteVer
+      ? `Pembaruan v${remoteVer} tersedia — klik untuk perbarui`
+      : 'Cek versi & pembaruan aplikasi';
+  }
+}
+
+async function fetchRemoteVersionInfo(timeoutMs = 4500) {
+  if (!navigator.onLine) return null;
+  if (location.protocol !== 'http:' && location.protocol !== 'https:') return null;
+  try {
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    const res = await fetch('./version.json', {
+      cache: 'no-store',
+      signal: controller ? controller.signal : undefined
+    });
+    if (timer) clearTimeout(timer);
+    if (!res || !res.ok) return null;
+    const data = await res.json();
+    const ver = data && typeof data.version === 'string' ? data.version.replace(/^v/i, '').trim() : '';
+    return /^\d+\.\d+\.\d+$/.test(ver) ? ver : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function checkBackgroundRemoteUpdate(force = false) {
+  if (!navigator.onLine) return;
+  const now = Date.now();
+  if (!force && now - lastRemoteCheckAt < 15000) return;
+  lastRemoteCheckAt = now;
+
+  const remoteVer = await fetchRemoteVersionInfo(4500);
+  if (!remoteVer) return;
+
+  if (compareSemver(remoteVer, APP_VERSION) > 0) {
+    pendingRemoteVersion = remoteVer;
+    setVersionNotifDot(true, remoteVer);
+    if (!bgUpdateToastShown) {
+      bgUpdateToastShown = true;
+      showToast(`Pembaruan v${remoteVer} tersedia. Ketuk pil versi untuk update.`, 'warning', 4500);
+    }
+    if (!bgUpdatePromptShown && !activeModalResolver) {
+      showAppUpdateCard({ oldVer: APP_VERSION, newVer: remoteVer, isBackgroundUpdate: true });
+    }
+  }
+}
 
 function initPwaForceUpdate() {
+  let justReloadedAfterUpdate = false;
+  try {
+    if (sessionStorage.getItem(POST_UPDATE_TOAST_KEY) === '1') {
+      sessionStorage.removeItem(POST_UPDATE_TOAST_KEY);
+      justReloadedAfterUpdate = true;
+    }
+  } catch (_) {}
+
   const prevVersion = localStorage.getItem(VERSION_STORAGE_KEY);
-  if (prevVersion && prevVersion !== APP_VERSION) {
-    showAppUpdateCard({ oldVer: prevVersion, newVer: APP_VERSION, isBackgroundUpdate: false });
-  } else if (!prevVersion) {
-    localStorage.setItem(VERSION_STORAGE_KEY, APP_VERSION);
+  localStorage.setItem(VERSION_STORAGE_KEY, APP_VERSION);
+
+  if (justReloadedAfterUpdate || (prevVersion && prevVersion !== APP_VERSION)) {
+    setTimeout(() => {
+      showToast(`Aplikasi berhasil diperbarui ke v${APP_VERSION}`, 'success', 4000);
+    }, 180);
   }
 
   if (!('serviceWorker' in navigator)) return;
@@ -173,12 +384,24 @@ function initPwaForceUpdate() {
       const triggerBackgroundSwCheck = () => {
         if (!navigator.onLine) return;
         reg.update().catch(() => {});
+        checkBackgroundRemoteUpdate(false);
+      };
+
+      const notifyBackgroundSwReady = () => {
+        setVersionNotifDot(true, pendingRemoteVersion || '');
+        if (!bgUpdateToastShown) {
+          bgUpdateToastShown = true;
+          showToast('Pembaruan aplikasi siap diterapkan. Ketuk pil versi untuk reload.', 'warning', 4500);
+        }
+        if (!manualUpdateState && !activeModalResolver) {
+          showAppUpdateCard({ oldVer: APP_VERSION, newVer: pendingRemoteVersion || null, isBackgroundUpdate: true });
+        }
       };
 
       if (reg.waiting) {
         reg.waiting.postMessage({ type: 'SKIP_WAITING' });
         if (!manualUpdateState) {
-          showAppUpdateCard({ oldVer: prevVersion || APP_VERSION, newVer: null, isBackgroundUpdate: true });
+          notifyBackgroundSwReady();
         }
       }
 
@@ -189,7 +412,7 @@ function initPwaForceUpdate() {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
             newWorker.postMessage({ type: 'SKIP_WAITING' });
             if (!manualUpdateState) {
-              showAppUpdateCard({ oldVer: prevVersion || APP_VERSION, newVer: null, isBackgroundUpdate: true });
+              notifyBackgroundSwReady();
             }
           }
         });
@@ -210,7 +433,7 @@ function initPwaForceUpdate() {
         }
 
         bgUpdatePromptShown = false;
-        showAppUpdateCard({ oldVer: prevVersion || APP_VERSION, newVer: null, isBackgroundUpdate: true });
+        notifyBackgroundSwReady();
       });
 
       document.addEventListener('visibilitychange', () => {
@@ -243,11 +466,12 @@ async function showAppUpdateCard({ oldVer, newVer, isBackgroundUpdate = false })
     updatePromptShown = true;
   }
 
+  const targetVerLabel = newVer ? `v${newVer}` : 'Terbaru';
   const title = isBackgroundUpdate
-    ? 'Update Terbaru Tersedia'
+    ? `Update ${targetVerLabel} Tersedia`
     : `Update Tersedia (v${newVer})`;
   const intro = isBackgroundUpdate
-    ? 'Versi baru PMR Editor sudah aktif di latar belakang. Muat ulang sekarang agar tampilan & fitur terbaru langsung diterapkan.'
+    ? `Versi baru PMR Editor${newVer ? ` (v${newVer})` : ''} sudah tersedia. Muat ulang sekarang agar tampilan & fitur terbaru langsung aktif.`
     : `Versi baru PMR Editor siap digunakan${oldVer && oldVer !== newVer ? ` (pembaruan dari v${oldVer})` : ''}. Muat ulang sekarang agar tampilan & fitur terbaru langsung aktif.`;
 
   const choice = await showModal({
@@ -269,40 +493,60 @@ async function showAppUpdateCard({ oldVer, newVer, isBackgroundUpdate = false })
   }
 
   if (choice === 'reload') {
-    window.location.reload();
+    if (swRegistration && swRegistration.waiting) {
+      swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    }
+    fadeOutAndReload();
   }
 }
 
-function parseLatestChangelogBullets(markdownText) {
+function parseAllChangelogSections(markdownText) {
   if (!markdownText || typeof markdownText !== 'string') return [];
-  const lines = markdownText.split(/\r?\n/);
-  let inLatestSection = false;
-  const bullets = [];
+  const headingRegex = /^##\s+\[?v?(\d+\.\d+\.\d+)\]?(.*)$/gm;
+  const matches = [...markdownText.matchAll(headingRegex)];
+  if (matches.length === 0) return [];
 
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (/^##\s+\[/.test(line)) {
-      if (inLatestSection) break;
-      inLatestSection = true;
-      continue;
+  const sections = [];
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i];
+    const version = match[1];
+    const rawMeta = (match[2] || '').replace(/^[\s—-]+/, '').trim();
+    const startIdx = match.index + match[0].length;
+    const endIdx = i + 1 < matches.length ? matches[i + 1].index : markdownText.length;
+    const blockBody = markdownText.slice(startIdx, endIdx);
+
+    const bullets = [];
+    const lines = blockBody.split(/\r?\n/);
+    for (const rawLine of lines) {
+      const trimmed = rawLine.trim();
+      if (trimmed === '---') break;
+      if (/^-\s+/.test(trimmed)) {
+        const cleaned = trimmed
+          .replace(/^-\s+/, '')
+          .replace(/\*\*([^*]+)\*\*/g, '$1')
+          .replace(/`([^`]+)`/g, '$1')
+          .trim();
+        if (cleaned) bullets.push(cleaned);
+      }
     }
-    if (!inLatestSection) continue;
-    if (line === '---') break;
 
-    if (/^-\s+/.test(line) && !rawLine.startsWith('  ')) {
-      const cleaned = line
-        .replace(/^-\s+/, '')
-        .replace(/\*\*([^*]+)\*\*/g, '$1')
-        .replace(/`([^`]+)`/g, '$1')
-        .trim();
-      if (cleaned) bullets.push(cleaned);
-      if (bullets.length >= 4) break;
+    if (bullets.length > 0) {
+      sections.push({
+        version,
+        meta: rawMeta,
+        bullets
+      });
     }
   }
-  return bullets;
+  return sections;
 }
 
-async function fetchLatestChangelogBullets() {
+async function fetchAllChangelogSections() {
+  const fallback = [{
+    version: APP_VERSION,
+    meta: 'Rilis Terkini',
+    bullets: UPDATE_HIGHLIGHTS
+  }];
   try {
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
     const abortTimer = controller ? setTimeout(() => controller.abort(), 4000) : null;
@@ -311,12 +555,12 @@ async function fetchLatestChangelogBullets() {
       signal: controller ? controller.signal : undefined
     });
     if (abortTimer) clearTimeout(abortTimer);
-    if (!res || !res.ok) return UPDATE_HIGHLIGHTS;
+    if (!res || !res.ok) return fallback;
     const text = await res.text();
-    const parsed = parseLatestChangelogBullets(text);
-    return parsed.length > 0 ? parsed : UPDATE_HIGHLIGHTS;
+    const parsed = parseAllChangelogSections(text);
+    return parsed.length > 0 ? parsed : fallback;
   } catch (_) {
-    return UPDATE_HIGHLIGHTS;
+    return fallback;
   }
 }
 
@@ -337,27 +581,82 @@ function getServiceWorkerStatusSummary(reg) {
   return { label: 'Menyiapkan Cache...', tone: 'amber' };
 }
 
-function renderModalBulletsList(ulEl, bullets, bulletVariant = 'success') {
-  if (!ulEl) return;
-  const iconName = bulletVariant === 'success'
-    ? 'check'
-    : (bulletVariant === 'danger' ? 'alertOctagon' : (bulletVariant === 'info' ? 'info' : 'alertTriangle'));
-  ulEl.innerHTML = '';
-  bullets.forEach((bText) => {
-    const li = document.createElement('li');
-    const bulletIconBox = document.createElement('span');
-    bulletIconBox.className = `modal-bullet-icon ${bulletVariant}`;
-    bulletIconBox.setAttribute('aria-hidden', 'true');
-    bulletIconBox.appendChild(createSvgIcon(iconName, 13));
+function renderChangelogAccordion(containerEl, sections) {
+  if (!containerEl) return;
+  containerEl.innerHTML = '';
 
-    const bulletTextSpan = document.createElement('span');
-    bulletTextSpan.className = 'modal-bullet-text';
-    bulletTextSpan.textContent = bText;
+  const list = document.createElement('div');
+  list.className = 'changelog-acc-list';
 
-    li.appendChild(bulletIconBox);
-    li.appendChild(bulletTextSpan);
-    ulEl.appendChild(li);
+  sections.forEach((sec, idx) => {
+    const isFirst = idx === 0;
+    const item = document.createElement('div');
+    item.className = isFirst ? 'changelog-acc-item open' : 'changelog-acc-item';
+
+    const headerBtn = document.createElement('button');
+    headerBtn.type = 'button';
+    headerBtn.className = 'changelog-acc-header';
+    headerBtn.setAttribute('aria-expanded', isFirst ? 'true' : 'false');
+
+    const titleWrap = document.createElement('span');
+    titleWrap.className = 'changelog-acc-title-wrap';
+
+    const verPill = document.createElement('span');
+    verPill.className = 'changelog-acc-ver';
+    verPill.textContent = `v${sec.version}`;
+    titleWrap.appendChild(verPill);
+
+    if (sec.meta) {
+      const metaSpan = document.createElement('span');
+      metaSpan.className = 'changelog-acc-meta';
+      metaSpan.textContent = sec.meta;
+      titleWrap.appendChild(metaSpan);
+    }
+
+    const chevron = createSvgIcon('chevronDown', 16, 'changelog-acc-chevron');
+    headerBtn.appendChild(titleWrap);
+    headerBtn.appendChild(chevron);
+
+    const panel = document.createElement('div');
+    panel.className = 'changelog-acc-panel';
+
+    const inner = document.createElement('div');
+    inner.className = 'changelog-acc-inner';
+
+    const ul = document.createElement('ul');
+    ul.className = 'changelog-acc-bullets';
+    sec.bullets.forEach((bText) => {
+      const li = document.createElement('li');
+      const bulletIconBox = document.createElement('span');
+      bulletIconBox.className = 'modal-bullet-icon success';
+      bulletIconBox.setAttribute('aria-hidden', 'true');
+      bulletIconBox.appendChild(createSvgIcon('check', 12));
+
+      const bulletTextSpan = document.createElement('span');
+      bulletTextSpan.className = 'modal-bullet-text';
+      bulletTextSpan.textContent = bText;
+
+      li.appendChild(bulletIconBox);
+      li.appendChild(bulletTextSpan);
+      ul.appendChild(li);
+    });
+
+    inner.appendChild(ul);
+    panel.appendChild(inner);
+
+    headerBtn.addEventListener('click', () => {
+      triggerHaptic(6);
+      const nextOpen = !item.classList.contains('open');
+      item.classList.toggle('open', nextOpen);
+      headerBtn.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+    });
+
+    item.appendChild(headerBtn);
+    item.appendChild(panel);
+    list.appendChild(item);
   });
+
+  containerEl.appendChild(list);
 }
 
 async function openVersionCheckModal() {
@@ -378,7 +677,7 @@ async function openVersionCheckModal() {
   iconEl.className = 'modal-icon success';
   iconEl.innerHTML = '';
   iconEl.appendChild(createSvgIcon('refresh', 21));
-  titleEl.textContent = 'Info Versi & Pembaruan';
+  titleEl.textContent = 'Info Versi & Riwayat Update';
 
   let activeReg = swRegistration;
   if (!activeReg && 'serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
@@ -418,13 +717,16 @@ async function openVersionCheckModal() {
 
   const sectionLabel = document.createElement('div');
   sectionLabel.className = 'version-section-label';
-  sectionLabel.textContent = `Pembaruan Terbaru (v${APP_VERSION})`;
+  sectionLabel.textContent = 'Riwayat Perubahan (Changelog)';
   bodyEl.appendChild(sectionLabel);
 
-  const changelogUl = document.createElement('ul');
-  changelogUl.className = 'modal-bullets success-list';
-  renderModalBulletsList(changelogUl, UPDATE_HIGHLIGHTS, 'success');
-  bodyEl.appendChild(changelogUl);
+  const accordionContainer = document.createElement('div');
+  renderChangelogAccordion(accordionContainer, [{
+    version: APP_VERSION,
+    meta: 'Rilis Terkini',
+    bullets: UPDATE_HIGHLIGHTS
+  }]);
+  bodyEl.appendChild(accordionContainer);
 
   const statusBanner = document.createElement('div');
   statusBanner.className = 'version-check-banner';
@@ -445,7 +747,7 @@ async function openVersionCheckModal() {
     lbl.textContent = labelText;
     checkBtn.appendChild(lbl);
   };
-  setCheckBtnState(false, 'Cek & Perbarui Aplikasi');
+  setCheckBtnState(false, pendingRemoteVersion ? `Perbarui ke v${pendingRemoteVersion}` : 'Cek & Perbarui Aplikasi');
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
@@ -479,6 +781,10 @@ async function openVersionCheckModal() {
     statusBanner.appendChild(msgSpan);
   };
 
+  if (pendingRemoteVersion && compareSemver(pendingRemoteVersion, APP_VERSION) > 0) {
+    setBanner('warning', 'alertTriangle', `Versi baru v${pendingRemoteVersion} terdeteksi di server. Tekan tombol di bawah untuk memperbarui.`);
+  }
+
   const cleanupVersionCheck = () => {
     isDisposed = true;
     manualUpdateState = null;
@@ -509,11 +815,10 @@ async function openVersionCheckModal() {
     isReloading = true;
     if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
     if (reloadFallbackId) { clearTimeout(reloadFallbackId); reloadFallbackId = null; }
+    setVersionNotifDot(false);
     setBanner('success', 'checkCircle', 'Pembaruan diterapkan! Memuat ulang aplikasi...');
     setCheckBtnState(true, 'Memuat ulang...');
-    setTimeout(() => {
-      if (!isDisposed) window.location.reload();
-    }, 450);
+    fadeOutAndReload();
   };
 
   const activateWaitingWorker = (worker) => {
@@ -554,6 +859,7 @@ async function openVersionCheckModal() {
         }
       } else if (worker.state === 'redundant') {
         finishWithResult('danger', 'alertOctagon', 'Instalasi pembaruan gagal atau dibatalkan. Silakan coba lagi.');
+        showToast('Instalasi pembaruan gagal. Silakan coba lagi.', 'error');
       }
     };
     worker.addEventListener('statechange', watchedWorkerHandler);
@@ -569,21 +875,25 @@ async function openVersionCheckModal() {
     timeoutId = setTimeout(() => {
       if (isChecking && !isDisposed) {
         finishWithResult('warning', 'alertTriangle', 'Pemeriksaan melebihi batas waktu 30 detik. Pastikan jaringan stabil lalu coba lagi.');
+        showToast('Cek pembaruan timeout (30 detik). Periksa koneksi.', 'error');
       }
     }, 30000);
 
     if (!navigator.onLine) {
-      finishWithResult('danger', 'alertOctagon', 'Perangkat sedang offline. Aktifkan internet untuk memeriksa pembaruan.');
+      finishWithResult('warning', 'alertTriangle', 'Perangkat sedang offline. Aktifkan internet untuk memeriksa pembaruan.');
+      showToast('Perangkat sedang offline. Cek update memerlukan internet.', 'warning');
       return;
     }
 
     const swSupported = 'serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:');
     if (!swSupported) {
       finishWithResult('danger', 'alertOctagon', 'Service Worker tidak tersedia di mode lokal/file://.');
+      showToast('Service Worker tidak tersedia di mode lokal.', 'error');
       return;
     }
 
     try {
+      const remotePromise = fetchRemoteVersionInfo(5000);
       let reg = activeReg || swRegistration || (await navigator.serviceWorker.getRegistration('./')) || (await navigator.serviceWorker.getRegistration());
       if (!reg) {
         reg = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
@@ -622,6 +932,7 @@ async function openVersionCheckModal() {
       reg.addEventListener('updatefound', updateFoundHandler);
 
       await reg.update();
+      const remoteVer = await remotePromise;
       if (isDisposed || !isChecking) return;
 
       if (reg.waiting) {
@@ -646,13 +957,25 @@ async function openVersionCheckModal() {
           attachWorkerWatcher(reg.installing);
           return;
         }
+        if (remoteVer && compareSemver(remoteVer, APP_VERSION) > 0) {
+          pendingRemoteVersion = remoteVer;
+          setVersionNotifDot(true, remoteVer);
+          swRowObj.val.textContent = `Versi Baru v${remoteVer}`;
+          swRowObj.val.className = 'version-meta-val sky';
+          performCleanReload();
+          return;
+        }
+        pendingRemoteVersion = null;
+        setVersionNotifDot(false);
         swRowObj.val.textContent = 'Aktif & Mutakhir';
         swRowObj.val.className = 'version-meta-val emerald';
         finishWithResult('success', 'checkCircle', `Aplikasi sudah menggunakan versi terbaru (v${APP_VERSION}).`);
-      }, 250);
+        showToast(`Aplikasi sudah versi terbaru (v${APP_VERSION})`, 'success');
+      }, 280);
     } catch (err) {
       if (isDisposed || !isChecking) return;
       finishWithResult('danger', 'alertOctagon', `Gagal memeriksa pembaruan: ${err && err.message ? err.message : 'kesalahan jaringan'}.`);
+      showToast('Gagal memeriksa pembaruan dari server.', 'error');
     }
   });
 
@@ -666,9 +989,9 @@ async function openVersionCheckModal() {
     checkBtn.focus();
   }, 30);
 
-  fetchLatestChangelogBullets().then((bullets) => {
-    if (!isDisposed && bullets && bullets.length > 0) {
-      renderModalBulletsList(changelogUl, bullets, 'success');
+  fetchAllChangelogSections().then((sections) => {
+    if (!isDisposed && sections && sections.length > 0) {
+      renderChangelogAccordion(accordionContainer, sections);
     }
   });
 
@@ -1042,6 +1365,8 @@ function updateFilledStats() {
     }
   });
 
+  const emptyCount = Math.max(0, total - filled);
+
   const badge = document.getElementById('filledCountBadge');
   if (badge) {
     badge.textContent = `Terisi: ${filled} / ${total} Cell`;
@@ -1050,6 +1375,11 @@ function updateFilledStats() {
     } else {
       badge.classList.remove('complete');
     }
+  }
+
+  const nextEmptyTextEl = document.getElementById('nextEmptyBtnText');
+  if (nextEmptyTextEl) {
+    nextEmptyTextEl.textContent = total > 0 ? `Sel Kosong (${emptyCount})` : 'Sel Kosong';
   }
 }
 
@@ -1074,6 +1404,11 @@ async function loadParameter(operatorKey) {
   currentOperatorKey = operatorKey;
   const errorBox = document.getElementById('loadErrorBox');
   if (errorBox) errorBox.style.display = 'none';
+
+  const hCont = document.getElementById('excelScrollContainer');
+  const vCont = document.getElementById('verticalScrollContainer');
+  if (hCont) hCont.classList.add('table-fade-switching');
+  if (vCont) vCont.classList.add('table-fade-switching');
 
   try {
     const response = await fetch(`./data/${operatorKey}.json`);
@@ -1138,6 +1473,10 @@ async function loadParameter(operatorKey) {
   renderActiveTable();
   updateFilledStats();
   filterParameters();
+  requestAnimationFrame(() => {
+    if (hCont) hCont.classList.remove('table-fade-switching');
+    if (vCont) vCont.classList.remove('table-fade-switching');
+  });
 }
 
 function createCellControl(item, idx) {
@@ -1150,6 +1489,7 @@ function createCellControl(item, idx) {
     select.id = `input_${item.id}`;
     select.name = item.id;
     select.setAttribute('data-index', idx);
+    select.setAttribute('enterkeyhint', 'next');
 
     const emptyOpt = document.createElement('option');
     emptyOpt.value = '';
@@ -1184,9 +1524,13 @@ function createCellControl(item, idx) {
     });
 
     select.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' || e.keyCode === 13) {
         e.preventDefault();
-        focusInput(idx + 1);
+        if (currentViewMode === 'vertical') {
+          focusNextVisibleInput(idx, 1);
+        } else {
+          focusInput(idx + 1);
+        }
       }
     });
 
@@ -1242,8 +1586,9 @@ function createCellControl(item, idx) {
   });
 
   input.addEventListener('keydown', (e) => {
+    const isEnter = e.key === 'Enter' || e.keyCode === 13;
     if (currentViewMode === 'horizontal') {
-      if (e.key === 'ArrowRight' || e.key === 'Enter') {
+      if (e.key === 'ArrowRight' || isEnter) {
         e.preventDefault();
         focusInput(idx + 1);
       } else if (e.key === 'ArrowLeft') {
@@ -1251,7 +1596,7 @@ function createCellControl(item, idx) {
         focusInput(idx - 1);
       }
     } else {
-      if (e.key === 'Enter' || e.key === 'ArrowDown') {
+      if (isEnter || e.key === 'ArrowDown') {
         e.preventDefault();
         focusNextVisibleInput(idx, 1);
       } else if (e.key === 'ArrowUp') {
@@ -1421,7 +1766,22 @@ function focusInput(targetIdx) {
         el.focus();
       }
       if (typeof el.select === 'function') el.select();
-      el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'center' });
+
+      if (currentViewMode === 'vertical') {
+        const row = document.getElementById(`vrow_${targetIdx}`) || el;
+        const toolbar = document.querySelector('.quick-toolbar');
+        const rect = row.getBoundingClientRect();
+        if (toolbar) {
+          const stickyTop = parseFloat(getComputedStyle(toolbar).top) || 0;
+          const desiredViewportTop = stickyTop + toolbar.offsetHeight + 10;
+          const targetScrollY = Math.max(0, window.scrollY + rect.top - desiredViewportTop);
+          window.scrollTo({ top: targetScrollY, behavior: 'smooth' });
+        } else {
+          row.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      } else {
+        el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
     }
   }
 }
@@ -1438,7 +1798,7 @@ function focusNextVisibleInput(currentIdx, step) {
   }
 }
 
-async function jumpToNextEmpty() {
+function jumpToNextEmpty() {
   triggerHaptic(10);
   const total = currentParameters.length;
   if (total === 0) return;
@@ -1464,13 +1824,7 @@ async function jumpToNextEmpty() {
     }
   }
 
-  await showModal({
-    type: 'success',
-    title: 'Semua Cell Sudah Terisi',
-    paragraphs: [`Mantap! Seluruh ${total} parameter untuk ${OPERATOR_SHORT_NAMES[currentOperatorKey]} sudah terisi penuh.`],
-    actions: [{ label: 'Sip, Mantap', value: true, className: 'btn btn-primary' }],
-    dismissValue: true
-  });
+  showToast(`Mantap! Seluruh ${total} parameter ${OPERATOR_SHORT_NAMES[currentOperatorKey]} sudah terisi.`, 'warning');
 }
 
 function clearWorkspaceData() {
@@ -1506,6 +1860,7 @@ async function unloadActiveFileConfirm() {
 
   if (!confirmed) return;
   clearWorkspaceData();
+  showToast('File aktif dilepas & tabel dikosongkan', 'success');
 }
 
 async function resetFormConfirm() {
@@ -1529,11 +1884,18 @@ async function resetFormConfirm() {
 
   if (!confirmed) return;
   clearWorkspaceData();
+  showToast(`Isian ${opName} berhasil direset`, 'success');
 }
 
 function clearSearch() {
+  triggerHaptic(8);
   const searchInput = document.getElementById('searchInput');
   if (searchInput) searchInput.value = '';
+  lastSearchNoMatchQuery = '';
+  if (searchNoMatchToastTimer) {
+    clearTimeout(searchNoMatchToastTimer);
+    searchNoMatchToastTimer = null;
+  }
   filterParameters();
 }
 
@@ -1544,11 +1906,17 @@ function filterParameters() {
   const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
   if (clearBtn) {
-    clearBtn.style.display = query ? 'block' : 'none';
+    clearBtn.style.display = query ? 'inline-flex' : 'none';
   }
 
+  if (searchNoMatchToastTimer) {
+    clearTimeout(searchNoMatchToastTimer);
+    searchNoMatchToastTimer = null;
+  }
+
+  let matchCount = 0;
+
   if (currentViewMode === 'vertical') {
-    let matchCount = 0;
     currentParameters.forEach((p, idx) => {
       const row = document.getElementById(`vrow_${idx}`);
       if (!row) return;
@@ -1567,40 +1935,50 @@ function filterParameters() {
         filterInfo.style.display = 'none';
       }
     }
-    return;
-  }
+  } else {
+    const prevHighlighted = document.querySelectorAll('#inputCellsRow .excel-input.highlight');
+    prevHighlighted.forEach(input => input.classList.remove('highlight'));
 
-  // Horizontal mode
-  const prevHighlighted = document.querySelectorAll('#inputCellsRow .excel-input.highlight');
-  prevHighlighted.forEach(input => input.classList.remove('highlight'));
-
-  if (!query) {
-    if (filterInfo) filterInfo.style.display = 'none';
-    return;
-  }
-
-  let firstMatch = null;
-  let matchCount = 0;
-
-  currentParameters.forEach((p) => {
-    const textData = p._searchText || `${p.index} ${p.equipment} ${p.tag} ${p.label}`.toLowerCase();
-    if (textData.includes(query)) {
-      matchCount++;
-      const input = document.getElementById(`input_${p.id}`);
-      if (input) {
-        input.classList.add('highlight');
-        if (!firstMatch) firstMatch = input;
-      }
+    if (!query) {
+      if (filterInfo) filterInfo.style.display = 'none';
+      lastSearchNoMatchQuery = '';
+      return;
     }
-  });
 
-  if (filterInfo) {
-    filterInfo.textContent = `Ditemukan ${matchCount} tag cocok`;
-    filterInfo.style.display = 'inline';
+    let firstMatch = null;
+    currentParameters.forEach((p) => {
+      const textData = p._searchText || `${p.index} ${p.equipment} ${p.tag} ${p.label}`.toLowerCase();
+      if (textData.includes(query)) {
+        matchCount++;
+        const input = document.getElementById(`input_${p.id}`);
+        if (input) {
+          input.classList.add('highlight');
+          if (!firstMatch) firstMatch = input;
+        }
+      }
+    });
+
+    if (filterInfo) {
+      filterInfo.textContent = `Ditemukan ${matchCount} tag cocok`;
+      filterInfo.style.display = 'inline';
+    }
+
+    if (firstMatch) {
+      firstMatch.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
   }
 
-  if (firstMatch) {
-    firstMatch.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  if (!query || matchCount > 0) {
+    lastSearchNoMatchQuery = '';
+  } else if (currentParameters.length > 0 && lastSearchNoMatchQuery !== query) {
+    searchNoMatchToastTimer = setTimeout(() => {
+      searchNoMatchToastTimer = null;
+      const currentQ = searchInput ? searchInput.value.toLowerCase().trim() : '';
+      if (currentQ && currentQ === query) {
+        lastSearchNoMatchQuery = currentQ;
+        showToast(`Tag atau parameter "${currentQ}" tidak ditemukan`, 'warning', 2800);
+      }
+    }, 320);
   }
 }
 
@@ -1643,21 +2021,44 @@ function extractTimingProfile(events, settings = null) {
   };
 }
 
-function importData(event) {
+function getFilledCellCount() {
+  let count = 0;
+  Object.values(currentValues).forEach((v) => {
+    if (v !== undefined && v !== null && v.toString().trim() !== '') count++;
+  });
+  return count;
+}
+
+async function importData(event) {
   const inputEl = event.target;
   const file = inputEl && inputEl.files ? inputEl.files[0] : null;
   if (!file) return;
 
-  const reader = new FileReader();
-  reader.onerror = async () => {
-    if (inputEl) inputEl.value = '';
-    await showModal({
-      type: 'danger',
-      title: 'Gagal Membaca File',
-      paragraphs: ['File tidak dapat dibaca oleh browser. Pastikan file tidak rusak atau masih tersedia di penyimpanan.'],
-      actions: [{ label: 'Tutup', value: true, className: 'btn btn-secondary' }],
-      dismissValue: true
+  const existingCount = getFilledCellCount();
+  if (existingCount > 0 || Boolean(currentBadgeText)) {
+    const opName = OPERATOR_SHORT_NAMES[currentOperatorKey] || currentOperatorKey.toUpperCase();
+    const confirmed = await showModal({
+      type: 'warning',
+      title: 'Timpa Draft Logsheet Aktif?',
+      paragraphs: [
+        `Logsheet ${opName} saat ini sudah berisi ${existingCount} sel terisi${currentBadgeText ? ` (dari "${currentBadgeText}")` : ''}. Mengimpor "${file.name}" akan menggantikan isian yang ada.`
+      ],
+      actions: [
+        { label: 'Ya, Timpa & Import', icon: 'download', value: true, className: 'btn btn-primary' },
+        { label: 'Batal', icon: 'x', value: false, className: 'btn btn-ghost' }
+      ],
+      dismissValue: false
     });
+    if (!confirmed) {
+      if (inputEl) inputEl.value = '';
+      return;
+    }
+  }
+
+  const reader = new FileReader();
+  reader.onerror = () => {
+    if (inputEl) inputEl.value = '';
+    showToast('File tidak dapat dibaca oleh browser. Pastikan file tidak rusak.', 'error', 4200);
   };
   reader.onload = async (e) => {
     try {
@@ -1674,6 +2075,7 @@ function importData(event) {
           file.name,
           null
         );
+        showToast(`Import "${file.name}" berhasil (${appliedCount} sel terisi)`, 'success');
         await showImportResultModal(file.name, currentParameters.length, appliedCount);
         return;
       }
@@ -1722,6 +2124,7 @@ function importData(event) {
         }
 
         const populatedCount = applyMappedValues(extractedValues, file.name, timingProfile);
+        showToast(`Import "${file.name}" berhasil (${populatedCount} sel terisi)`, 'success');
         await showImportResultModal(file.name, total, populatedCount);
         return;
       }
@@ -1730,25 +2133,14 @@ function importData(event) {
       if (Array.isArray(json)) {
         const rawList = json.map(val => (typeof val === 'object' && val !== null) ? (val.value ?? val.val ?? '') : val);
         const populatedCount = applyMappedValues(rawList, file.name, null);
+        showToast(`Import "${file.name}" berhasil (${populatedCount} sel terisi)`, 'success');
         await showImportResultModal(file.name, rawList.length, populatedCount);
         return;
       }
 
-      await showModal({
-        type: 'warning',
-        title: 'Format File Tidak Dikenali',
-        paragraphs: ['Pastikan file yang dipilih adalah file makro .pmr atau .json PMR Web Runner yang valid.'],
-        actions: [{ label: 'Tutup', value: true, className: 'btn btn-secondary' }],
-        dismissValue: true
-      });
+      showToast('Format file tidak dikenali. Pilih file .pmr atau .json yang valid.', 'error', 4200);
     } catch (err) {
-      await showModal({
-        type: 'danger',
-        title: 'Gagal Membaca File',
-        paragraphs: [`Terjadi kesalahan saat memproses file: ${err.message}`],
-        actions: [{ label: 'Tutup', value: true, className: 'btn btn-secondary' }],
-        dismissValue: true
-      });
+      showToast(`File import rusak atau format salah (${err.message}).`, 'error', 4200);
     } finally {
       if (inputEl) inputEl.value = '';
     }
@@ -1894,17 +2286,11 @@ function parsePmrMacroEventsAccurate(events) {
 
 /* ================= CONSOLIDATED EXPORT VALIDATION & BUILD ================= */
 
-async function validateBeforeExport() {
+async function validateBeforeExport(actionType = 'export') {
   flushPendingDraftSave();
   const total = currentParameters.length;
   if (total === 0) {
-    await showModal({
-      type: 'warning',
-      title: 'Data Parameter Belum Termuat',
-      paragraphs: ['Daftar parameter operator gagal dimuat. Pastikan koneksi internet aktif lalu muat ulang halaman.'],
-      actions: [{ label: 'Tutup', value: true, className: 'btn btn-secondary' }],
-      dismissValue: true
-    });
+    showToast('Data parameter belum termuat. Muat ulang halaman.', 'error');
     return false;
   }
   let filledCount = 0;
@@ -1926,13 +2312,7 @@ async function validateBeforeExport() {
   });
 
   if (filledCount === 0) {
-    await showModal({
-      type: 'warning',
-      title: 'Belum Ada Data Diisi',
-      paragraphs: ['Isi minimal 1 parameter terlebih dahulu sebelum melakukan Export atau Share.'],
-      actions: [{ label: 'Isi Sekarang', value: true, className: 'btn btn-primary' }],
-      dismissValue: true
-    });
+    showToast('Belum ada parameter diisi. Isi minimal 1 sel terlebih dahulu.', 'warning');
     jumpToNextEmpty();
     return false;
   }
@@ -1966,13 +2346,13 @@ async function validateBeforeExport() {
   if (issues.length > 0) {
     const choice = await showModal({
       type: gapsBeforeLast.length > 0 || invalidParams.length > 0 ? 'danger' : 'warning',
-      title: 'Periksa Sebelum Export / Share',
-      paragraphs: ['Ditemukan beberapa catatan pada data logsheet:'],
+      title: actionType === 'share' ? 'Periksa Sebelum Share' : 'Periksa Sebelum Export',
+      paragraphs: [`Masih ada ${emptyParams.length} sel kosong atau catatan validasi pada logsheet:`],
       bullets: issues,
       bulletStyle: 'warning',
       actions: [
-        { label: 'Periksa Sel', icon: 'search', value: 'fix', className: 'btn btn-primary' },
-        { label: 'Tetap Lanjut', value: 'proceed', className: 'btn btn-ghost' }
+        { label: 'Cek Sel Kosong', icon: 'search', value: 'fix', className: 'btn btn-primary' },
+        { label: actionType === 'share' ? 'Tetap Share' : 'Tetap Export', value: 'proceed', className: 'btn btn-ghost' }
       ],
       dismissValue: 'fix'
     });
@@ -2079,15 +2459,26 @@ function buildExportArtifact() {
 
 async function handleExport() {
   triggerHaptic(12);
-  if (!(await validateBeforeExport())) return;
-  const artifact = buildExportArtifact();
-  downloadBlob(artifact.content, artifact.fileName, artifact.mimeType);
+  if (!(await validateBeforeExport('export'))) return;
+  try {
+    const artifact = buildExportArtifact();
+    downloadBlob(artifact.content, artifact.fileName, artifact.mimeType);
+    showToast(`Berhasil export ${artifact.fileName}`, 'success');
+  } catch (err) {
+    showToast(`Gagal export file: ${err && err.message ? err.message : 'kesalahan sistem'}`, 'error', 4200);
+  }
 }
 
 async function handleShare() {
   triggerHaptic(12);
-  if (!(await validateBeforeExport())) return;
-  const artifact = buildExportArtifact();
+  if (!(await validateBeforeExport('share'))) return;
+  let artifact;
+  try {
+    artifact = buildExportArtifact();
+  } catch (err) {
+    showToast(`Gagal menyiapkan file share: ${err && err.message ? err.message : 'kesalahan sistem'}`, 'error', 4200);
+    return;
+  }
 
   try {
     let shareFile = new File([artifact.content], artifact.fileName, { type: artifact.mimeType });
@@ -2101,6 +2492,7 @@ async function handleShare() {
         title: artifact.fileName,
         text: `Logsheet DILOC ${currentOperatorKey.toUpperCase()}`
       });
+      showToast(`Berhasil membagikan ${artifact.fileName}`, 'success');
       return;
     }
   } catch (err) {
@@ -2108,14 +2500,12 @@ async function handleShare() {
     console.warn('Web Share API gagal, fallback ke download:', err.message);
   }
 
-  await showModal({
-    type: 'info',
-    title: 'Share File Tidak Didukung Browser',
-    paragraphs: ['Perangkat/browser ini belum mendukung fitur Share File langsung. File akan diunduh otomatis ke penyimpanan perangkat.'],
-    actions: [{ label: 'Unduh File', value: true, className: 'btn btn-primary' }],
-    dismissValue: true
-  });
-  downloadBlob(artifact.content, artifact.fileName, artifact.mimeType);
+  try {
+    downloadBlob(artifact.content, artifact.fileName, artifact.mimeType);
+    showToast(`Share langsung tidak tersedia; file diunduh (${artifact.fileName})`, 'success', 3800);
+  } catch (err) {
+    showToast(`Gagal mengunduh file: ${err && err.message ? err.message : 'kesalahan sistem'}`, 'error', 4200);
+  }
 }
 
 function downloadBlob(content, fileName, contentType) {

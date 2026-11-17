@@ -1,5 +1,14 @@
 # Changelog — PMR Editor
 
+## [v1.9.0] - 2026-11-17 (Minor Update)
+- **Toast Notification 3-Varian**: Menambahkan sistem notifikasi toast bergaya Kolase Foto TPM (`Success`, `Warning`, `Error`) dengan SVG inline kontekstual, fitur *smart replace* anti-tumpuk, *tap-to-dismiss*, serta penghapusan total dialog `alert()`/`confirm()` bawaan browser.
+- **Pengaman Import & Export Logsheet**: Menambahkan dialog konfirmasi Custom Modal sebelum menimpa draft aktif saat import, counter dinamis sisa sel pada tombol `Sel Kosong (X)`, serta modal peringatan dengan opsi `Tetap Export` dan `Cek Sel Kosong`.
+- **Navigasi & Produktivitas Lapangan**: Memastikan input logsheet memakai `enterkeyhint="next"` dengan *smooth scroll* tepat di bawah *sticky toolbar*, tombol *clear* (`×`) pencarian dengan icon SVG, dan tombol melayang *Scroll-to-Top* yang menghormati `safe-area-inset-bottom`.
+- **Animasi Native App Feel & Safe-Area iOS**: Merombak transisi modal/toast/tab operator dengan kurva *spring* `cubic-bezier`, efek tekan `scale(0.97)`, *fade-in/fade-out* anti-flicker sebelum reload (timeout maks `300ms` + pemulihan `pageshow` bfcache), serta penyatuan jarak atas iOS ke variabel CSS `--ios-top-clearance`.
+- **Changelog Accordion & Deteksi Versi Akurat**: Memuat seluruh riwayat versi dari `CHANGELOG.md` ke dalam mode *accordion* di modal versi, menambah pembanding sekunder `public/version.json` (`cache: 'no-store'`), serta menampilkan titik notifikasi pada pil versi saat update terdeteksi di latar belakang.
+
+---
+
 ## [v1.8.1] - 2026-11-17 (Bug Fix / Patch)
 - Menambahkan workflow GitHub Actions resmi (`.github/workflows/deploy.yml`) untuk build & auto-deploy ke GitHub Pages setiap push ke branch `main` dengan izin `contents: read`, `pages: write`, dan `id-token: write`.
 - Memastikan build Vite memakai `base: './'` dan menginstal dependensi via `npm install` agar CI tidak gagal akibat ketiadaan `package-lock.json`.

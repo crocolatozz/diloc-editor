@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pmr-editor-v1.8.1';
+const CACHE_NAME = 'pmr-editor-v1.9.0';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -57,6 +57,11 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
+
+  if (url.pathname.endsWith('/version.json')) {
+    event.respondWith(fetch(new Request(event.request, { cache: 'no-store' })));
+    return;
+  }
 
   const isCoreDoc =
     event.request.mode === 'navigate' ||
