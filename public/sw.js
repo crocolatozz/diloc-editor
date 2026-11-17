@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pmr-editor-v1.6.2';
+const CACHE_NAME = 'pmr-editor-v1.7.0';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -61,7 +61,9 @@ self.addEventListener('fetch', (event) => {
       .then((networkRes) => {
         if (networkRes && networkRes.status === 200) {
           const clone = networkRes.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          caches.open(CACHE_NAME)
+            .then((cache) => cache.put(event.request, clone))
+            .catch(() => {});
         }
         return networkRes;
       })

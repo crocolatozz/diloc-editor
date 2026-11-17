@@ -1,6 +1,36 @@
-const APP_VERSION = '1.6.2';
+const APP_VERSION = '1.7.0';
 const VERSION_STORAGE_KEY = 'pmr_editor_installed_version';
 const STORAGE_PREFIX = 'pmr_editor_draft_v1_';
+const UPDATE_HIGHLIGHTS = [
+  'Sistem icon SVG berwarna kontekstual menggantikan seluruh emoji',
+  'Polish kedalaman card, border presisi, dan hierarki kontras ala Kolase Foto TPM',
+  'Header modal dan daftar catatan kini memakai tinted icon box yang lebih rapi'
+];
+
+const SVG_ICON_PATHS = {
+  info: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+  checkCircle: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+  check: '<polyline points="20 6 9 17 4 12"/>',
+  alertTriangle: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  alertOctagon: '<polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
+  rocket: '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
+  refresh: '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
+  fileText: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+  database: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>',
+  trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+  search: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+  x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'
+};
+
+function createSvgIcon(name, size = 16, extraClass = '') {
+  const wrap = document.createElement('span');
+  wrap.className = extraClass ? `ui-icon ${extraClass}` : 'ui-icon';
+  wrap.setAttribute('aria-hidden', 'true');
+  const inner = SVG_ICON_PATHS[name] || SVG_ICON_PATHS.info;
+  wrap.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+  return wrap;
+}
 
 let currentParameters = [];
 let currentOperatorKey = 'operator1';
@@ -9,8 +39,11 @@ let currentViewMode = window.innerWidth < 768 ? 'vertical' : 'horizontal';
 let currentBadgeText = '';
 let importedTimingProfile = null;
 let draftPulseTimer = null;
+let draftSaveTimer = null;
+let loadRequestId = 0;
 let activeModalResolver = null;
 let activeModalDismissValue = null;
+let modalFocusTimer = null;
 let updatePromptShown = false;
 
 const OPERATOR_LABELS = {
@@ -34,6 +67,13 @@ document.addEventListener('DOMContentLoaded', () => {
   updateLayoutContainerVisibility();
   loadParameter(defaultOp);
   initPwaForceUpdate();
+});
+
+window.addEventListener('pagehide', flushPendingDraftSave);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    flushPendingDraftSave();
+  }
 });
 
 function triggerHaptic(duration = 12) {
@@ -111,7 +151,7 @@ function syncResponsiveBadgePlacement() {
 function initPwaForceUpdate() {
   const prevVersion = localStorage.getItem(VERSION_STORAGE_KEY);
   if (prevVersion && prevVersion !== APP_VERSION) {
-    showAppUpdateCard(prevVersion, APP_VERSION);
+    showAppUpdateCard({ oldVer: prevVersion, newVer: APP_VERSION, isBackgroundUpdate: false });
   } else if (!prevVersion) {
     localStorage.setItem(VERSION_STORAGE_KEY, APP_VERSION);
   }
@@ -125,7 +165,7 @@ function initPwaForceUpdate() {
 
       if (reg.waiting) {
         reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        showAppUpdateCard(prevVersion || 'versi lama', APP_VERSION);
+        showAppUpdateCard({ oldVer: prevVersion || APP_VERSION, newVer: null, isBackgroundUpdate: true });
       }
 
       reg.addEventListener('updatefound', () => {
@@ -134,7 +174,7 @@ function initPwaForceUpdate() {
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
             newWorker.postMessage({ type: 'SKIP_WAITING' });
-            showAppUpdateCard(prevVersion || 'versi lama', APP_VERSION);
+            showAppUpdateCard({ oldVer: prevVersion || APP_VERSION, newVer: null, isBackgroundUpdate: true });
           }
         });
       });
@@ -143,7 +183,7 @@ function initPwaForceUpdate() {
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (refreshing) return;
         refreshing = true;
-        showAppUpdateCard(prevVersion || 'versi lama', APP_VERSION);
+        showAppUpdateCard({ oldVer: prevVersion || APP_VERSION, newVer: null, isBackgroundUpdate: true });
       });
 
       document.addEventListener('visibilitychange', () => {
@@ -159,31 +199,34 @@ function initPwaForceUpdate() {
   });
 }
 
-async function showAppUpdateCard(oldVer, newVer) {
+async function showAppUpdateCard({ oldVer, newVer, isBackgroundUpdate = false }) {
   if (updatePromptShown) return;
   updatePromptShown = true;
+
+  const title = isBackgroundUpdate
+    ? 'Update Terbaru Tersedia'
+    : `Update Tersedia (v${newVer})`;
+  const intro = isBackgroundUpdate
+    ? 'Versi baru PMR Editor sudah terunduh di latar belakang. Muat ulang sekarang agar tampilan & fitur terbaru langsung aktif.'
+    : `Versi baru PMR Editor siap digunakan${oldVer && oldVer !== newVer ? ` (pembaruan dari v${oldVer})` : ''}. Muat ulang sekarang agar tampilan & fitur terbaru langsung aktif.`;
 
   const choice = await showModal({
     type: 'success',
     isUpdateCard: true,
-    title: `Update Tersedia (v${newVer})`,
-    paragraphs: [
-      `Versi baru PMR Editor siap digunakan${oldVer && oldVer !== newVer ? ` (pembaruan dari v${oldVer})` : ''}. Muat ulang sekarang agar tampilan & fitur terbaru langsung aktif.`
-    ],
-    bullets: [
-      'Jarak atas header & sticky toolbar di iPhone diturunkan agar bebas efek blur status bar',
-      'Perisai top bar dipertebal agar baris tabel tidak tembus di belakang Dynamic Island / notch',
-      'Presisi lompat sel kosong & hasil pencarian tetap pas di bawah toolbar'
-    ],
+    title,
+    paragraphs: [intro],
+    bullets: isBackgroundUpdate ? [] : UPDATE_HIGHLIGHTS,
     bulletStyle: 'success',
     actions: [
-      { label: '🔄 Muat Ulang Sekarang', value: 'reload', className: 'btn btn-primary' },
+      { label: 'Muat Ulang Sekarang', icon: 'refresh', value: 'reload', className: 'btn btn-primary' },
       { label: 'Nanti Saja', value: 'later', className: 'btn btn-ghost' }
     ],
     dismissValue: 'later'
   });
 
-  localStorage.setItem(VERSION_STORAGE_KEY, APP_VERSION);
+  if (!isBackgroundUpdate) {
+    localStorage.setItem(VERSION_STORAGE_KEY, APP_VERSION);
+  }
 
   if (choice === 'reload') {
     window.location.reload();
@@ -211,6 +254,10 @@ function setupModalEvents() {
 }
 
 function closeModal(resultValue) {
+  if (modalFocusTimer) {
+    clearTimeout(modalFocusTimer);
+    modalFocusTimer = null;
+  }
   const overlay = document.getElementById('appModalOverlay');
   const card = document.getElementById('appModalCard');
   if (overlay) {
@@ -236,6 +283,9 @@ function showModal({
   actions = [{ label: 'OK', value: true, className: 'btn btn-primary' }],
   dismissValue = null
 }) {
+  if (activeModalResolver) {
+    closeModal(activeModalDismissValue);
+  }
   return new Promise((resolve) => {
     const overlay = document.getElementById('appModalOverlay');
     const card = document.getElementById('appModalCard');
@@ -254,14 +304,15 @@ function showModal({
     }
 
     const iconMap = {
-      info: 'ℹ️',
-      success: isUpdateCard ? '🚀' : '✅',
-      warning: '⚠️',
-      danger: '🚨'
+      info: 'info',
+      success: isUpdateCard ? 'rocket' : 'checkCircle',
+      warning: 'alertTriangle',
+      danger: 'alertOctagon'
     };
 
     iconEl.className = `modal-icon ${type}`;
-    iconEl.textContent = iconMap[type] || 'ℹ️';
+    iconEl.innerHTML = '';
+    iconEl.appendChild(createSvgIcon(iconMap[type] || 'info', 21));
     titleEl.textContent = title;
 
     bodyEl.innerHTML = '';
@@ -273,11 +324,28 @@ function showModal({
     });
 
     if (bullets && bullets.length > 0) {
+      const bulletVariant = bulletStyle === 'success'
+        ? 'success'
+        : (type === 'danger' ? 'danger' : (type === 'info' ? 'info' : 'warning'));
+      const bulletIconName = bulletVariant === 'success'
+        ? 'check'
+        : (bulletVariant === 'danger' ? 'alertOctagon' : (bulletVariant === 'info' ? 'info' : 'alertTriangle'));
+
       const ul = document.createElement('ul');
       ul.className = `modal-bullets ${bulletStyle === 'success' ? 'success-list' : ''}`;
       bullets.forEach((bText) => {
         const li = document.createElement('li');
-        li.textContent = bText;
+        const bulletIconBox = document.createElement('span');
+        bulletIconBox.className = `modal-bullet-icon ${bulletVariant}`;
+        bulletIconBox.setAttribute('aria-hidden', 'true');
+        bulletIconBox.appendChild(createSvgIcon(bulletIconName, 13));
+
+        const bulletTextSpan = document.createElement('span');
+        bulletTextSpan.className = 'modal-bullet-text';
+        bulletTextSpan.textContent = bText;
+
+        li.appendChild(bulletIconBox);
+        li.appendChild(bulletTextSpan);
         ul.appendChild(li);
       });
       bodyEl.appendChild(ul);
@@ -291,7 +359,12 @@ function showModal({
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = act.className || 'btn btn-secondary';
-      btn.textContent = act.label;
+      if (act.icon) {
+        btn.appendChild(createSvgIcon(act.icon, 16));
+      }
+      const labelSpan = document.createElement('span');
+      labelSpan.textContent = act.label;
+      btn.appendChild(labelSpan);
       btn.addEventListener('click', () => { triggerHaptic(10); closeModal(act.value); });
       actionsEl.appendChild(btn);
       if (idx === 0) primaryBtn = btn;
@@ -303,7 +376,10 @@ function showModal({
     overlay.setAttribute('aria-hidden', 'false');
 
     if (primaryBtn) {
-      setTimeout(() => primaryBtn.focus(), 30);
+      modalFocusTimer = setTimeout(() => {
+        modalFocusTimer = null;
+        primaryBtn.focus();
+      }, 30);
     }
   });
 }
@@ -334,7 +410,8 @@ function setImportedFileBadge(text, isDraft = false) {
   if (!container || !iconEl || !prefixEl || !nameEl) return;
 
   if (text) {
-    iconEl.textContent = isDraft ? '💾' : '📄';
+    iconEl.innerHTML = '';
+    iconEl.appendChild(createSvgIcon(isDraft ? 'database' : 'fileText', 15));
     prefixEl.textContent = isDraft ? 'Draft:' : 'File aktif:';
     nameEl.textContent = text;
     nameEl.title = text;
@@ -363,7 +440,12 @@ function updateDraftSavedIndicator(visible, timestampMs = null) {
     }
   }
 
-  badge.textContent = `✓ Draft tersimpan (${timeStr})`;
+  const textEl = document.getElementById('draftSavedText');
+  if (textEl) {
+    textEl.textContent = `Draft tersimpan (${timeStr})`;
+  } else {
+    badge.textContent = `Draft tersimpan (${timeStr})`;
+  }
   badge.classList.add('visible', 'pulse');
 
   if (draftPulseTimer) clearTimeout(draftPulseTimer);
@@ -435,7 +517,7 @@ function normalizeCellValue(val, item, strictSanitize = false) {
   return str.trim();
 }
 
-function saveDraftToStorage() {
+function persistDraftNow() {
   try {
     const hasData = Object.values(currentValues).some(v => v !== '');
     if (!hasData && !importedTimingProfile && !currentBadgeText) {
@@ -457,6 +539,34 @@ function saveDraftToStorage() {
   } catch (e) {
     console.warn('Gagal menyimpan draft localStorage:', e.message);
   }
+}
+
+function cancelPendingDraftSave() {
+  if (draftSaveTimer) {
+    clearTimeout(draftSaveTimer);
+    draftSaveTimer = null;
+  }
+}
+
+function flushPendingDraftSave() {
+  if (draftSaveTimer) {
+    clearTimeout(draftSaveTimer);
+    draftSaveTimer = null;
+    persistDraftNow();
+  }
+}
+
+function saveDraftToStorage(immediate = true) {
+  if (immediate) {
+    cancelPendingDraftSave();
+    persistDraftNow();
+    return;
+  }
+  cancelPendingDraftSave();
+  draftSaveTimer = setTimeout(() => {
+    draftSaveTimer = null;
+    persistDraftNow();
+  }, 120);
 }
 
 function loadDraftFromStorage(operatorKey) {
@@ -510,6 +620,8 @@ function updateLayoutContainerVisibility() {
 async function loadParameter(operatorKey) {
   if (!operatorKey) return;
 
+  flushPendingDraftSave();
+  const reqId = ++loadRequestId;
   currentOperatorKey = operatorKey;
   const errorBox = document.getElementById('loadErrorBox');
   if (errorBox) errorBox.style.display = 'none';
@@ -519,14 +631,28 @@ async function loadParameter(operatorKey) {
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
-    currentParameters = await response.json();
+    const loadedParams = await response.json();
+    if (reqId !== loadRequestId) return;
+    currentParameters = loadedParams.map((item) => ({
+      ...item,
+      _searchText: `${item.index} ${item.equipment} ${item.tag} ${item.label}`.toLowerCase()
+    }));
   } catch (err) {
+    if (reqId !== loadRequestId) return;
     currentParameters = [];
     if (errorBox) {
       const isFileProto = window.location.protocol === 'file:';
-      errorBox.textContent = isFileProto
-        ? '⚠️ File dibuka langsung via file:// sehingga browser memblokir pembacaan data parameter. Jalankan melalui GitHub Pages atau server lokal (XAMPP).'
-        : `⚠️ Gagal memuat data parameter (${operatorKey}.json). Pastikan koneksi internet aktif saat pertama kali membuka aplikasi agar tersimpan offline.`;
+      const errMsg = isFileProto
+        ? 'File dibuka langsung via file:// sehingga browser memblokir pembacaan data parameter. Jalankan melalui GitHub Pages atau server lokal (XAMPP).'
+        : `Gagal memuat data parameter (${operatorKey}.json). Pastikan koneksi internet aktif saat pertama kali membuka aplikasi agar tersimpan offline.`;
+      errorBox.innerHTML = '';
+      const errInner = document.createElement('div');
+      errInner.className = 'load-error-inner';
+      errInner.appendChild(createSvgIcon('alertTriangle', 18, 'load-error-icon'));
+      const errText = document.createElement('span');
+      errText.textContent = errMsg;
+      errInner.appendChild(errText);
+      errorBox.appendChild(errInner);
       errorBox.style.display = 'block';
     }
   }
@@ -591,7 +717,7 @@ function createCellControl(item, idx) {
     if (currentVal !== '' && !choiceOpts.includes(currentVal)) {
       const customOpt = document.createElement('option');
       customOpt.value = currentVal;
-      customOpt.textContent = `${currentVal} ⚠️`;
+      customOpt.textContent = `${currentVal} (!)`;
       select.appendChild(customOpt);
       select.classList.add('cell-warning');
     }
@@ -646,7 +772,9 @@ function createCellControl(item, idx) {
       if (cursorPos !== null) {
         const diff = raw.length - sanitized.length;
         const nextPos = Math.max(0, cursorPos - diff);
-        input.setSelectionRange(nextPos, nextPos);
+        try {
+          input.setSelectionRange(nextPos, nextPos);
+        } catch (_) {}
       }
     }
 
@@ -655,12 +783,13 @@ function createCellControl(item, idx) {
     const tempValid = sanitized === '' || sanitized === '-' || sanitized === '.' || sanitized === '-.' || /^-?(?:\d+\.?\d*|\.\d+)$/.test(sanitized);
     input.classList.toggle('cell-warning', !tempValid);
     updateFilledStats();
-    saveDraftToStorage();
+    saveDraftToStorage(false);
   });
 
   input.addEventListener('blur', () => {
     const val = currentValues[item.id] || '';
     input.classList.toggle('cell-warning', val !== '' && !isValidNumericValue(val));
+    flushPendingDraftSave();
   });
 
   input.addEventListener('keydown', (e) => {
@@ -712,6 +841,10 @@ function renderHorizontalExcel(params) {
   let currentEq = null;
   let currentSpan = 0;
   const eqHeaderCells = [];
+  const eqFrag = document.createDocumentFragment();
+  const tagFrag = document.createDocumentFragment();
+  const unitFrag = document.createDocumentFragment();
+  const inputFrag = document.createDocumentFragment();
 
   params.forEach((item, idx) => {
     const eqName = item.equipment || 'Lain-lain';
@@ -729,22 +862,26 @@ function renderHorizontalExcel(params) {
     const thTag = document.createElement('th');
     thTag.className = 'tag-header';
     thTag.setAttribute('data-col', idx);
-    thTag.innerHTML = `<span class="col-index">#${item.index}</span>${item.tag || item.equipment}`;
-    headerTagRow.appendChild(thTag);
+    const idxSpan = document.createElement('span');
+    idxSpan.className = 'col-index';
+    idxSpan.textContent = `#${item.index}`;
+    thTag.appendChild(idxSpan);
+    thTag.appendChild(document.createTextNode(item.tag || item.equipment || ''));
+    tagFrag.appendChild(thTag);
 
     const thUnit = document.createElement('th');
     thUnit.className = 'unit-header';
     thUnit.setAttribute('data-col', idx);
     thUnit.textContent = item.unit || '-';
-    headerUnitRow.appendChild(thUnit);
+    unitFrag.appendChild(thUnit);
 
     const tdInput = document.createElement('td');
-    tdInput.setAttribute('data-search', `${item.equipment} ${item.tag} ${item.label}`.toLowerCase());
+    tdInput.setAttribute('data-search', item._searchText || `${item.equipment} ${item.tag} ${item.label}`.toLowerCase());
     tdInput.setAttribute('id', `cell_col_${idx}`);
 
     const control = createCellControl(item, idx);
     tdInput.appendChild(control);
-    inputCellsRow.appendChild(tdInput);
+    inputFrag.appendChild(tdInput);
   });
 
   if (currentEq !== null) {
@@ -756,8 +893,13 @@ function renderHorizontalExcel(params) {
     th.className = 'eq-header';
     th.colSpan = eq.span;
     th.textContent = eq.name;
-    headerEqRow.appendChild(th);
+    eqFrag.appendChild(th);
   });
+
+  headerEqRow.appendChild(eqFrag);
+  headerTagRow.appendChild(tagFrag);
+  headerUnitRow.appendChild(unitFrag);
+  inputCellsRow.appendChild(inputFrag);
 }
 
 function renderVerticalTable(params) {
@@ -766,11 +908,13 @@ function renderVerticalTable(params) {
 
   if (!params || params.length === 0) return;
 
+  const frag = document.createDocumentFragment();
+
   params.forEach((item, idx) => {
     const tr = document.createElement('tr');
     tr.id = `vrow_${idx}`;
     tr.setAttribute('data-index', idx);
-    tr.setAttribute('data-search', `${item.index} ${item.equipment} ${item.tag} ${item.label}`.toLowerCase());
+    tr.setAttribute('data-search', item._searchText || `${item.index} ${item.equipment} ${item.tag} ${item.label}`.toLowerCase());
 
     const tdMeta = document.createElement('td');
     tdMeta.className = 'cell-tap-target';
@@ -811,8 +955,10 @@ function renderVerticalTable(params) {
 
     tr.appendChild(tdMeta);
     tr.appendChild(tdVal);
-    tbody.appendChild(tr);
+    frag.appendChild(tr);
   });
+
+  tbody.appendChild(frag);
 }
 
 function focusInput(targetIdx) {
@@ -820,7 +966,11 @@ function focusInput(targetIdx) {
     const targetParam = currentParameters[targetIdx];
     const el = document.getElementById(`input_${targetParam.id}`);
     if (el) {
-      el.focus();
+      try {
+        el.focus({ preventScroll: true });
+      } catch (_) {
+        el.focus();
+      }
       if (typeof el.select === 'function') el.select();
       el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'center' });
     }
@@ -875,6 +1025,7 @@ async function jumpToNextEmpty() {
 }
 
 function clearWorkspaceData() {
+  cancelPendingDraftSave();
   currentValues = {};
   importedTimingProfile = null;
   localStorage.removeItem(STORAGE_PREFIX + currentOperatorKey);
@@ -898,7 +1049,7 @@ async function unloadActiveFileConfirm() {
       `File "${fileName}" akan dilepas dan seluruh sel pada ${opName} akan dikosongkan agar Anda bisa membuat data baru dari nol.`
     ],
     actions: [
-      { label: '🧹 Ya, Kosongkan', value: true, className: 'btn btn-danger-ghost' },
+      { label: 'Ya, Kosongkan', icon: 'trash', value: true, className: 'btn btn-danger-ghost' },
       { label: 'Batal', value: false, className: 'btn btn-ghost' }
     ],
     dismissValue: false
@@ -921,7 +1072,7 @@ async function resetFormConfirm() {
     title: `Reset Isian ${opName}?`,
     paragraphs: [desc],
     actions: [
-      { label: '🗑️ Ya, Reset', value: true, className: 'btn btn-danger-ghost' },
+      { label: 'Ya, Reset', icon: 'trash', value: true, className: 'btn btn-danger-ghost' },
       { label: 'Batal', value: false, className: 'btn btn-ghost' }
     ],
     dismissValue: false
@@ -952,7 +1103,7 @@ function filterParameters() {
     currentParameters.forEach((p, idx) => {
       const row = document.getElementById(`vrow_${idx}`);
       if (!row) return;
-      const textData = `${p.index} ${p.equipment} ${p.tag} ${p.label}`.toLowerCase();
+      const textData = p._searchText || `${p.index} ${p.equipment} ${p.tag} ${p.label}`.toLowerCase();
       const isMatch = !query || textData.includes(query);
       row.style.display = isMatch ? '' : 'none';
       row.classList.toggle('row-highlight', Boolean(query && isMatch));
@@ -971,8 +1122,8 @@ function filterParameters() {
   }
 
   // Horizontal mode
-  const inputs = document.querySelectorAll('.excel-input');
-  inputs.forEach(input => input.classList.remove('highlight'));
+  const prevHighlighted = document.querySelectorAll('#inputCellsRow .excel-input.highlight');
+  prevHighlighted.forEach(input => input.classList.remove('highlight'));
 
   if (!query) {
     if (filterInfo) filterInfo.style.display = 'none';
@@ -983,7 +1134,7 @@ function filterParameters() {
   let matchCount = 0;
 
   currentParameters.forEach((p) => {
-    const textData = `${p.index} ${p.equipment} ${p.tag} ${p.label}`.toLowerCase();
+    const textData = p._searchText || `${p.index} ${p.equipment} ${p.tag} ${p.label}`.toLowerCase();
     if (textData.includes(query)) {
       matchCount++;
       const input = document.getElementById(`input_${p.id}`);
@@ -1021,6 +1172,7 @@ function extractTimingProfile(events, settings = null) {
   const pressDurations = [];
 
   events.forEach((ev, idx) => {
+    if (!ev || typeof ev !== 'object') return;
     if (ev.type === 'keyboardEvent' && typeof ev.timestamp === 'number') {
       if (ev.pressed === false) {
         pressDurations.push(ev.timestamp);
@@ -1043,17 +1195,28 @@ function extractTimingProfile(events, settings = null) {
 }
 
 function importData(event) {
-  const file = event.target.files[0];
+  const inputEl = event.target;
+  const file = inputEl && inputEl.files ? inputEl.files[0] : null;
   if (!file) return;
 
   const reader = new FileReader();
+  reader.onerror = async () => {
+    if (inputEl) inputEl.value = '';
+    await showModal({
+      type: 'danger',
+      title: 'Gagal Membaca File',
+      paragraphs: ['File tidak dapat dibaca oleh browser. Pastikan file tidak rusak atau masih tersedia di penyimpanan.'],
+      actions: [{ label: 'Tutup', value: true, className: 'btn btn-secondary' }],
+      dismissValue: true
+    });
+  };
   reader.onload = async (e) => {
     try {
       const content = e.target.result;
       const json = JSON.parse(content);
 
       // Format 1: Backup JSON lama (json.data)
-      if (json.data && typeof json.data === 'object') {
+      if (json && typeof json === 'object' && json.data && typeof json.data === 'object' && !Array.isArray(json.data)) {
         const appliedCount = applyMappedValues(
           currentParameters.map(p => {
             if (json.data[p.id] === undefined) return '';
@@ -1067,7 +1230,7 @@ function importData(event) {
       }
 
       // Format 2: PyMacroRecord (.pmr) / PMR Web Runner (.json)
-      if (json.events && Array.isArray(json.events)) {
+      if (json && typeof json === 'object' && Array.isArray(json.events)) {
         const extractedValues = parsePmrMacroEventsAccurate(json.events);
         const timingProfile = extractTimingProfile(json.events, json.settings || null);
         const total = extractedValues.length;
@@ -1093,9 +1256,9 @@ function importData(event) {
               `File "${file.name}" berisi ${total} cell (cocok dengan ${targetLabel}), sedangkan posisi aktif sekarang di ${currentShort}.`
             ],
             actions: [
-              { label: `🔄 Pindah ke ${targetShort}`, value: 'switch', className: 'btn btn-primary' },
-              { label: `📥 Tetap Isi di ${currentShort}`, value: 'stay', className: 'btn btn-share' },
-              { label: '✕ Batal', value: 'cancel', className: 'btn btn-ghost' }
+              { label: `Pindah ke ${targetShort}`, icon: 'refresh', value: 'switch', className: 'btn btn-primary' },
+              { label: `Tetap Isi di ${currentShort}`, icon: 'download', value: 'stay', className: 'btn btn-share' },
+              { label: 'Batal', icon: 'x', value: 'cancel', className: 'btn btn-ghost' }
             ],
             dismissValue: 'cancel'
           });
@@ -1105,6 +1268,7 @@ function importData(event) {
           if (choice === 'switch') {
             document.getElementById('selectOperator').value = detectedOp;
             await loadParameter(detectedOp);
+            if (currentParameters.length === 0) return;
           }
         }
 
@@ -1137,7 +1301,7 @@ function importData(event) {
         dismissValue: true
       });
     } finally {
-      event.target.value = '';
+      if (inputEl) inputEl.value = '';
     }
   };
   reader.readAsText(file);
@@ -1183,7 +1347,7 @@ async function showImportResultModal(fileName, totalRead, populatedCount) {
   if (invalidItems.length > 0) {
     const preview = invalidItems.slice(0, 4).join(', ');
     const more = invalidItems.length > 4 ? ` (+${invalidItems.length - 4} lainnya)` : '';
-    bullets.push(`⚠️ ${invalidItems.length} nilai perlu dicek: ${preview}${more}`);
+    bullets.push(`${invalidItems.length} nilai perlu dicek: ${preview}${more}`);
   }
 
   await showModal({
@@ -1225,7 +1389,8 @@ function parsePmrMacroEventsAccurate(events) {
   }
 
   events.forEach(ev => {
-    if (ev.type === 'keyboardEvent' && ev.pressed === true) {
+    if (!ev || typeof ev !== 'object') return;
+    if (ev.type === 'keyboardEvent' && ev.pressed === true && typeof ev.key === 'string') {
       const key = ev.key;
 
       if (nextColKeys.includes(key)) {
@@ -1281,7 +1446,18 @@ function parsePmrMacroEventsAccurate(events) {
 /* ================= CONSOLIDATED EXPORT VALIDATION & BUILD ================= */
 
 async function validateBeforeExport() {
+  flushPendingDraftSave();
   const total = currentParameters.length;
+  if (total === 0) {
+    await showModal({
+      type: 'warning',
+      title: 'Data Parameter Belum Termuat',
+      paragraphs: ['Daftar parameter operator gagal dimuat. Pastikan koneksi internet aktif lalu muat ulang halaman.'],
+      actions: [{ label: 'Tutup', value: true, className: 'btn btn-secondary' }],
+      dismissValue: true
+    });
+    return false;
+  }
   let filledCount = 0;
   let lastFilledIdx = -1;
   const emptyParams = [];
@@ -1346,7 +1522,7 @@ async function validateBeforeExport() {
       bullets: issues,
       bulletStyle: 'warning',
       actions: [
-        { label: '🔍 Periksa Sel', value: 'fix', className: 'btn btn-primary' },
+        { label: 'Periksa Sel', icon: 'search', value: 'fix', className: 'btn btn-primary' },
         { label: 'Tetap Lanjut', value: 'proceed', className: 'btn btn-ghost' }
       ],
       dismissValue: 'fix'
