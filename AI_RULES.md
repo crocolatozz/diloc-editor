@@ -1,26 +1,58 @@
-# Profil & Gaya Komunikasi
-- User: Fikri (Operator Pabrik Urea 1B, Petrokimia Gresik).
-- Gaya bahasa: Bahasa Indonesia santai, singkat, kritis, to the point, dan gunakan emoji secukupnya. Jangan bertele-tele.
+# AI_RULES.md — Panduan Pengembangan PMR Editor
 
-# Aturan Versioning & Workflow (WAJIB DIPATUHI)
-1. **Semantic Versioning (`1.x.x`):** Penomoran versi wajib format `1.x.x` (contoh: `1.7.0`). Setiap kali diminta update, jelaskan dulu apakah perubahan tersebut termasuk **Major**, **Minor**, atau **Bug Fix / Patch**, lalu sinkronkan angkanya di `index.html`, `APP_VERSION` (`public/app.js`), `CACHE_NAME` (`public/sw.js`), `package.json`, `CHANGELOG.md`, dan `README.md`.
-2. **Pemeliharaan `CHANGELOG.md` (Single Source of Truth):**
-   - Setiap ada update atau perubahan kode, WAJIB perbarui file `CHANGELOG.md` di root repository (versi terbaru di paling atas).
-   - Gunakan format standar berikut agar mudah dibaca di GitHub sekaligus kompatibel dengan parser pop-up di `public/app.js`:
+Dokumen ini adalah aturan wajib bagi AI setiap kali memodifikasi, memperbaiki bug, atau menambahkan fitur pada repositori **PMR Editor** (`crocolatozz/pmr-editor`).
 
-         ## [v1.x.x] - YYYY-MM-DD (Kategori)
-         - Poin perubahan 1 (jelas & ringkas)
-         - Poin perubahan 2
+---
 
-   - Pastikan `vite.config.js` menyalin `CHANGELOG.md` ke folder `dist/` saat `vite build` dan `public/sw.js` ikut menyimpannya di `CORE_ASSETS` agar pop-up tetap jalan saat offline.
-3. **Hemat Kuota Token:** Jika ada beberapa revisi, kumpulkan dan konfirmasi dulu rencananya sebelum mengeksekusi perubahan kode besar atau generate build baru.
-4. **Audit & Kritik Wajib:** Setiap selesai membuat update versi terbaru, wajib cek ulang potensi bug/crash di kode, lalu berikan kritik & saran konkret apa yang bisa di-improve untuk versi berikutnya.
-5. **Changelog Wajib dalam Code Block:** Setiap selesai melakukan update atau ada perubahan kode apa pun, wajib sertakan **changelog lengkap di dalam code block** di akhir respons chat agar mudah langsung di-copy paste oleh user ke Gemini.
-6. **Footer Credit:** Pertahankan credit low-key di footer dengan format persis:
-   `© 2026 — Developed by FIKRI`
+## 1. Alur Kerja & Penomoran Versi (SemVer)
+- **Konfirmasi Sebelum Eksekusi:** Jabarkan ringkasan rencana perubahan dan target nomor versi terlebih dahulu sebelum memodifikasi file proyek.
+- **Standar Semantic Versioning (`MAJOR.MINOR.PATCH`):**
+  - **MAJOR (`x.0.0`):** Perubahan arsitektur besar atau perubahan format struktur data `.pmr`/`.json`.
+  - **MINOR (`1.x.0`):** Penambahan fitur baru atau peningkatan UI/UX tanpa merusak kompatibilitas data.
+  - **PATCH (`1.8.x`):** Perbaikan bug, penyesuaian CSS/layout, atau optimalisasi performa minor.
 
-# Pagar Teknis Proyek (PMR Editor — Logsheet DILOC Urea 1B)
-- Pertahankan arsitektur ringan berbasis Vite + Vanilla JS (`public/app.js` sebagai classic script) tanpa memaksa migrasi ke React/framework berat kecuali diminta eksplisit.
-- Jaga `base: './'` di `vite.config.js` agar kompatibel dengan sub-path GitHub Pages.
-- DILARANG mengubah struktur data `public/data/operator1.json` (167 param), `operator2.json` (51 param), dan `operator3.json` (45 param), maupun skema output export `.pmr` (PyMacroRecord) dan `.json` (Web Runner).
-- Pertahankan standar visual icon SVG berwarna kontekstual (`v1.7.0+`, tanpa emoji mentah di UI) serta dukungan PWA offline (`public/sw.js`, `manifest.json`) dan optimasi layar native iPhone/Android (safe-area notch padding, `body::before` status-bar shield, input `16px` anti-zoom iOS, dan haptic feedback).
+---
+
+## 2. Aturan Sinkronisasi Versi (WAJIB SERENTAK)
+Setiap kali nomor versi naik, AI **WAJIB** memperbarui nomor versi secara identik di **seluruh 7 file berikut** tanpa terkecuali:
+1. `package.json` — properti `"version"`
+2. `index.html` — teks pil/badge versi di header (serta meta/title jika mencantumkan versi)
+3. `public/app.js` — konstanta `APP_VERSION` dan fallback highlights versi terbaru
+4. `public/sw.js` — konstanta `CACHE_NAME` (misal `pmr-editor-v1.9.0`) serta memastikan aset baru terdaftar di `CORE_ASSETS`
+5. `public/version.json` — objek `{"version": "x.y.z"}` untuk pembanding versi sekunder anti-cache
+6. `README.md` — keterangan versi saat ini dan ringkasan fitur utama terbaru
+7. `CHANGELOG.md` — entri versi terbaru di bagian paling atas dengan format `## [vX.Y.Z] - YYYY-MM-DD`
+
+---
+
+## 3. Standar Visual, Animasi & Native App Feel
+- **Identitas Desain:** Pertahankan palet warna *deep slate* (`#0f172a`), tipografi bawaan aplikasi, serta credit footer low-key wajib: `© 2026 — Developed by FIKRI`.
+- **Nol Karakter Emoji (Wajib Inline SVG):** Dilarang keras memakai karakter emoji di HTML, CSS, maupun JS. Seluruh ikon wajib menggunakan **inline SVG berwarna kontekstual** (`currentColor` atau warna status semantik).
+- **Nol Dialog Bawaan Browser:** Dilarang memanggil `window.alert()`, `window.confirm()`, atau `window.prompt()`.
+  - Feedback cepat (sukses, peringatan ringan, error) wajib memakai **Toast Notification 3-Varian** (Success hijau, Warning amber, Error merah) dengan *smart replace* (tidak menumpuk) dan *tap-to-dismiss*.
+  - Konfirmasi tindakan penting (reset, lepas file, timpa draft import, export dengan sel kosong) wajib memakai **Custom Modal** aplikasi.
+- **Animasi & Transisi Anti-Flicker:**
+  - Gunakan kurva transisi halus (*spring / cubic-bezier*) untuk modal, toast, perpindahan tab, dan efek tekan tombol (`scale(0.97)`).
+  - Terapkan *fade-in* halus saat aplikasi dibuka serta *fade-out* (maksimal `300ms`, disertai pemulihan `opacity: 1` pada event `pageshow`) sebelum `location.reload()` pasca-update agar bebas kedip layar (*flicker*).
+
+---
+
+## 4. Pagar Teknis Logsheet, PWA & Safari iOS
+- **Integritas Data DILOC Urea 1B:** Jangan mengubah skema JSON/PMR (`events`, koordinat, delay, tipe aksi), logika konversi desimal, maupun dataset operator (`operator1.json`, `operator2.json`, `operator3.json`) kecuali diminta eksplisit.
+- **Proteksi Safe-Area & Sticky Toolbar iOS:**
+  - Pertahankan dukungan `viewport-fit=cover`, perisai *status bar* atas (`body::before`), dan sinkronisasi jarak atas melalui variabel CSS terpadu agar baris tabel tidak tembus di belakang *Dynamic Island* / *notch* saat di-scroll.
+  - **Dilarang** memasang properti CSS `transform` permanen pada elemen induk *sticky toolbar* karena merusak `position: sticky` di Safari iOS.
+- **Aturan User-Gesture Safari iOS:** Pemanggilan `fileInput.click()` harus dijalankan secara sinkron saat tombol *Import* diklik agar tidak diblokir browser iOS; dialog konfirmasi timpa draft dimunculkan setelah file dipilih di event `onchange`.
+- **Kompatibilitas Build Vite & Service Worker:**
+  - Pertahankan `base: './'` di `vite.config.js` agar build berjalan mulus di GitHub Pages.
+  - Pertahankan registrasi SW dengan `{ updateViaCache: 'none' }`, pengambilan aset inti memakai `cache: 'no-store'`, serta pengaman *timeout* 30 detik pada pengecekan update manual.
+  - Jangan menghapus atau mengganti ID elemen DOM yang sudah ada tanpa memperbarui seluruh referensinya di JS/CSS.
+
+---
+
+## 5. Checklist Audit & Format Penutup Respons
+Sebelum mengakhiri respons pada setiap pembaruan:
+1. Verifikasi sintaks JS (`node --check`) dan pastikan `npm run build` selesai tanpa error.
+2. Pastikan **0 emoji**, **0 `alert`/`confirm`**, dan nomor versi di **ketujuh file** sudah 100% sinkron.
+3. Sajikan bagian **Audit Potensi Bug/Crash** dan **Kritik & Saran Update Berikutnya** secara ringkas dan kritis.
+4. Tutup respons dengan **Changelog versi terbaru di dalam code block** (` ```markdown ... ``` `) agar siap disalin.
