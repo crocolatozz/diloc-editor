@@ -1,5 +1,14 @@
 # Changelog — PMR Editor
 
+## [v1.10.0] - 2026-11-19 (Minor Update)
+- **Hapus Visual Mode Satset & Kunci Kecepatan Normal**: Menghapus kontrol/checkbox `Kecepatan Pengisian / Mode Satset` beserta referensi DOM/event/draft terkait di `index.html` dan `public/app.js`, serta mengunci playback ke kecepatan **Normal** dengan tetap mempertahankan optimasi profil delay & konsistensi struktur timestamp `.pmr`/`.json`.
+- **Tata Ulang Grid Control Card Presisi (Semua Viewport)**: Menata ulang `.controls-bar` menjadi 3 baris CSS Grid seimbang di HP kecil, tablet, maupun desktop — Baris 1 (`Pilih Operator` & `Import` tinggi seragam `44px` sejajar bawah), Baris 2 (`Cari Tag / Equipment` full-width `100%`), dan Baris 3 (`Format & Export` seimbang penuh rata kiri-kanan).
+- **Timestamp Draft Lengkap (`DD/MM, HH:mm`)**: Memperbarui indikator status penyimpanan otomatis menjadi `Draft tersimpan (DD/MM, HH:mm)` serta menyelaraskan ukuran badge status pada *sticky toolbar* mobile agar tetap sejajar satu baris tanpa wrapping/terpotong di layar sempit.
+- **Splash Screen Gaya Samsung (PWA Standalone Only) & Anti-Balok Hitam iOS**: Menambahkan 10 aset static `<link rel="apple-touch-startup-image">` (`public/splash-*.png`) plus *overlay* `#app-splash` (`#0f172a` solid + ikon tengah `min(45vw, 188px)` tanpa teks, tahan minimal `1.4` detik + fade-out `300ms`) khusus iOS standalone dengan isolasi ketat agar tidak tampil di browser biasa maupun menyebabkan *double-splash* di Android WebAPK, sekaligus memperkuat `safe-area-inset-bottom` (`calc(20px + env(safe-area-inset-bottom, 0px))`) dan `min-height: -webkit-fill-available` guna mencegah balok hitam bawah di iPhone.
+- **Sinkronisasi Versi & Cache SW**: Memperbarui nomor versi ke `1.10.0` di seluruh 7 file (`package.json`, `index.html`, `public/app.js`, `public/sw.js`, `public/version.json`, `README.md`, `CHANGELOG.md`) dan mendaftarkan seluruh aset `splash-*.png` ke `CORE_ASSETS` di `public/sw.js`.
+
+---
+
 ## [v1.9.0] - 2026-11-17 (Minor Update)
 - **Toast Notification 3-Varian**: Menambahkan sistem notifikasi toast bergaya Kolase Foto TPM (`Success`, `Warning`, `Error`) dengan SVG inline kontekstual, fitur *smart replace* anti-tumpuk, *tap-to-dismiss*, serta penghapusan total dialog `alert()`/`confirm()` bawaan browser.
 - **Pengaman Import & Export Logsheet**: Menambahkan dialog konfirmasi Custom Modal sebelum menimpa draft aktif saat import, counter dinamis sisa sel pada tombol `Sel Kosong (X)`, serta modal peringatan dengan opsi `Tetap Export` dan `Cek Sel Kosong`.

@@ -1,12 +1,12 @@
-const APP_VERSION = '1.9.0';
+const APP_VERSION = '1.10.0';
 const VERSION_STORAGE_KEY = 'pmr_editor_installed_version';
 const POST_UPDATE_TOAST_KEY = 'pmr_editor_post_update_reload';
 const STORAGE_PREFIX = 'pmr_editor_draft_v1_';
 const UPDATE_HIGHLIGHTS = [
-  'Sistem Toast Notification 3-varian bergaya Kolase Foto TPM dengan smart replace & tap-to-dismiss',
-  'Pengaman konfirmasi sebelum menimpa draft saat import serta counter & modal cek sel kosong sebelum export',
-  'Navigasi keyboard Enter/Next presisi di bawah sticky toolbar, tombol Scroll-to-Top, dan changelog accordion',
-  'Pembanding versi sekunder public/version.json dengan titik notifikasi di pil versi & transisi anti-flicker iOS'
+  'Penghapusan visual Mode Satset & penguncian kecepatan playback Normal dengan optimasi delay tetap aktif',
+  'Tata ulang grid Control Card 3-baris presisi & seimbang di semua layar HP kecil hingga desktop',
+  'Penambahan tanggal (DD/MM, HH:mm) pada indikator Draft tersimpan yang tetap satu baris di layar sempit',
+  'Splash Screen gaya Samsung khusus PWA standalone iOS, isolasi Android anti-double-splash, & perisai anti-balok hitam iPhone'
 ];
 
 const SVG_ICON_PATHS = {
@@ -87,7 +87,26 @@ document.addEventListener('DOMContentLoaded', () => {
   updateLayoutContainerVisibility();
   loadParameter(defaultOp);
   initPwaForceUpdate();
+  hideIosSplashIfActive();
 });
+
+function hideIosSplashIfActive() {
+  const splash = document.getElementById('app-splash');
+  if (!splash || !splash.classList.contains('active')) return;
+  const start = typeof window.__pmrSplashStart === 'number'
+    ? window.__pmrSplashStart
+    : ((window.performance && typeof performance.now === 'function') ? performance.now() : Date.now());
+  const now = (window.performance && typeof performance.now === 'function') ? performance.now() : Date.now();
+  const minHoldMs = 1400;
+  const remainingMs = Math.max(0, minHoldMs - (now - start));
+
+  setTimeout(() => {
+    splash.classList.add('fade-out');
+    setTimeout(() => {
+      splash.classList.remove('active', 'fade-out');
+    }, 310);
+  }, remainingMs);
+}
 
 window.addEventListener('pagehide', flushPendingDraftSave);
 document.addEventListener('visibilitychange', () => {
@@ -271,9 +290,13 @@ function fadeOutAndReload() {
   }, 240);
 }
 
-window.addEventListener('pageshow', () => {
+window.addEventListener('pageshow', (e) => {
   isReloadScheduled = false;
   document.body.classList.remove('page-leaving');
+  if (e && e.persisted) {
+    const splash = document.getElementById('app-splash');
+    if (splash) splash.classList.remove('active', 'fade-out');
+  }
 });
 
 /* ================= PWA FORCE UPDATE, VERSION CHECK & ACCORDION ================= */
@@ -1166,11 +1189,12 @@ function getLocalDateTag() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function getLocalTimeShort() {
-  const now = new Date();
-  const hh = String(now.getHours()).padStart(2, '0');
-  const mm = String(now.getMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
+function getLocalDateTimeShort(dateObj = new Date()) {
+  const dd = String(dateObj.getDate()).padStart(2, '0');
+  const mo = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const hh = String(dateObj.getHours()).padStart(2, '0');
+  const mi = String(dateObj.getMinutes()).padStart(2, '0');
+  return `${dd}/${mo}, ${hh}:${mi}`;
 }
 
 function setImportedFileBadge(text, isDraft = false) {
@@ -1204,13 +1228,14 @@ function updateDraftSavedIndicator(visible, timestampMs = null) {
     return;
   }
 
-  let timeStr = getLocalTimeShort();
+  let dateObj = new Date();
   if (timestampMs) {
-    const d = new Date(timestampMs);
-    if (!isNaN(d.getTime())) {
-      timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const parsed = new Date(timestampMs);
+    if (!isNaN(parsed.getTime())) {
+      dateObj = parsed;
     }
   }
+  const timeStr = getLocalDateTimeShort(dateObj);
 
   const textEl = document.getElementById('draftSavedText');
   if (textEl) {
@@ -1297,13 +1322,11 @@ function persistDraftNow() {
       updateDraftSavedIndicator(false);
       return;
     }
-    const superFastEl = document.getElementById('superFastMode');
     const nowMs = Date.now();
     const payload = {
       values: currentValues,
       badge: currentBadgeText,
       timingProfile: importedTimingProfile,
-      superFast: superFastEl ? superFastEl.checked : true,
       updatedAt: nowMs
     };
     localStorage.setItem(STORAGE_PREFIX + currentOperatorKey, JSON.stringify(payload));
@@ -1453,10 +1476,6 @@ async function loadParameter(operatorKey) {
     });
     if (draft.timingProfile) {
       importedTimingProfile = draft.timingProfile;
-    }
-    const superFastEl = document.getElementById('superFastMode');
-    if (superFastEl && typeof draft.superFast === 'boolean') {
-      superFastEl.checked = draft.superFast;
     }
     if (draft.badge) {
       setImportedFileBadge(draft.badge, true);
@@ -2372,17 +2391,6 @@ async function validateBeforeExport(actionType = 'export') {
 }
 
 function getActivePlaybackTiming() {
-  const superFastEl = document.getElementById('superFastMode');
-  const isSuperFast = superFastEl ? superFastEl.checked : true;
-
-  if (isSuperFast) {
-    return {
-      charDelay: 0.005,
-      navDelay: 0.005,
-      pressDuration: 0.002
-    };
-  }
-
   if (importedTimingProfile) {
     return {
       charDelay: importedTimingProfile.charDelay,
@@ -2427,9 +2435,7 @@ function buildExportArtifact() {
     }
   }
 
-  const superFastEl = document.getElementById('superFastMode');
-  const isSuperFast = superFastEl ? superFastEl.checked : true;
-  const baseSettings = (!isSuperFast && importedTimingProfile && importedTimingProfile.settings)
+  const baseSettings = (importedTimingProfile && importedTimingProfile.settings)
     ? importedTimingProfile.settings
     : {
         Playback: { Speed: 1.0, Repeat: { Times: 1, For: 0, Interval: 0, Delay: 0, Scheduled: 0, Infinite: false } },

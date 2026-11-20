@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pmr-editor-v1.9.0';
+const CACHE_NAME = 'pmr-editor-v1.10.0';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -11,6 +11,16 @@ const CORE_ASSETS = [
   './icon-maskable-192.png',
   './icon-maskable-512.png',
   './apple-touch-icon.png',
+  './splash-1320x2868.png',
+  './splash-1290x2796.png',
+  './splash-1284x2778.png',
+  './splash-1242x2688.png',
+  './splash-1206x2622.png',
+  './splash-1179x2556.png',
+  './splash-1170x2532.png',
+  './splash-1125x2436.png',
+  './splash-828x1792.png',
+  './splash-750x1334.png',
   './data/operator1.json',
   './data/operator2.json',
   './data/operator3.json'
