@@ -1,6 +1,6 @@
 # PMR Editor — Logsheet DILOC Urea 1B
 
-![Version](https://img.shields.io/badge/version-1.10.0-10b981?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.10.1-10b981?style=flat-square)
 ![Vite](https://img.shields.io/badge/build-Vite-646cff?style=flat-square&logo=vite&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-Offline%20Ready-0ea5e9?style=flat-square)
 ![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android%20%7C%20Web-334155?style=flat-square)
@@ -26,7 +26,7 @@ Aplikasi web progresif (**PWA**) ringan berbasis **Vite + Vanilla JavaScript** u
   - Setiap ketikan tersimpan otomatis di `localStorage` beserta stempel waktu lengkap (`DD/MM, HH:mm`) sehingga aman meski browser tertutup.
   - Dilengkapi indikator progres (`Terisi: X / Y Cell`), pencarian Tag/Equipment lebar penuh, dan tombol lompat cepat ke sel kosong (`Sel Kosong (X)`).
 - **Native App Experience (iOS & Android)**
-  - Mendukung instalasi *Add to Home Screen* dengan *Splash Screen* seragam bergaya Samsung (khusus mode PWA standalone iOS & WebAPK Android) dan berjalan penuh tanpa koneksi internet (*Service Worker*).
+  - Mendukung instalasi *Add to Home Screen* dengan *Splash Screen* 1 lapis murni bawaan sistem (via 10 aset `apple-touch-startup-image` di iOS & WebAPK di Android) disertai transisi masuk *smooth fade-in* CSS murni, serta berjalan penuh tanpa koneksi internet (*Service Worker*).
   - Optimasi *safe-area* atas & bawah anti-balok hitam untuk iPhone (*notch / Dynamic Island / home indicator*), input `16px` anti-zoom otomatis di iOS Safari, kunci *pull-to-refresh*, toast notification 3-varian, serta *haptic feedback* di Android.
 
 ---

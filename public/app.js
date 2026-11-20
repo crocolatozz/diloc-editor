@@ -1,12 +1,11 @@
-const APP_VERSION = '1.10.0';
+const APP_VERSION = '1.10.1';
 const VERSION_STORAGE_KEY = 'pmr_editor_installed_version';
 const POST_UPDATE_TOAST_KEY = 'pmr_editor_post_update_reload';
 const STORAGE_PREFIX = 'pmr_editor_draft_v1_';
 const UPDATE_HIGHLIGHTS = [
-  'Penghapusan visual Mode Satset & penguncian kecepatan playback Normal dengan optimasi delay tetap aktif',
-  'Tata ulang grid Control Card 3-baris presisi & seimbang di semua layar HP kecil hingga desktop',
-  'Penambahan tanggal (DD/MM, HH:mm) pada indikator Draft tersimpan yang tetap satu baris di layar sempit',
-  'Splash Screen gaya Samsung khusus PWA standalone iOS, isolasi Android anti-double-splash, & perisai anti-balok hitam iPhone'
+  'Penghapusan overlay splash HTML lapis kedua (#app-splash) & timer 1.4 detik agar pembukaan di iPhone bebas lompatan ikon',
+  'Optimalisasi splash screen 1 lapis murni bawaan iOS via 10 aset apple-touch-startup-image',
+  'Transisi masuk aplikasi CSS murni opacity-only 380ms (tanpa transform) yang aman untuk sticky toolbar & bfcache Safari iOS'
 ];
 
 const SVG_ICON_PATHS = {
@@ -87,26 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateLayoutContainerVisibility();
   loadParameter(defaultOp);
   initPwaForceUpdate();
-  hideIosSplashIfActive();
 });
-
-function hideIosSplashIfActive() {
-  const splash = document.getElementById('app-splash');
-  if (!splash || !splash.classList.contains('active')) return;
-  const start = typeof window.__pmrSplashStart === 'number'
-    ? window.__pmrSplashStart
-    : ((window.performance && typeof performance.now === 'function') ? performance.now() : Date.now());
-  const now = (window.performance && typeof performance.now === 'function') ? performance.now() : Date.now();
-  const minHoldMs = 1400;
-  const remainingMs = Math.max(0, minHoldMs - (now - start));
-
-  setTimeout(() => {
-    splash.classList.add('fade-out');
-    setTimeout(() => {
-      splash.classList.remove('active', 'fade-out');
-    }, 310);
-  }, remainingMs);
-}
 
 window.addEventListener('pagehide', flushPendingDraftSave);
 document.addEventListener('visibilitychange', () => {
@@ -293,9 +273,12 @@ function fadeOutAndReload() {
 window.addEventListener('pageshow', (e) => {
   isReloadScheduled = false;
   document.body.classList.remove('page-leaving');
-  if (e && e.persisted) {
-    const splash = document.getElementById('app-splash');
-    if (splash) splash.classList.remove('active', 'fade-out');
+  const appContainer = document.querySelector('.app-container');
+  if (appContainer) {
+    appContainer.style.removeProperty('opacity');
+    if (e && e.persisted) {
+      appContainer.style.animation = 'none';
+    }
   }
 });
 

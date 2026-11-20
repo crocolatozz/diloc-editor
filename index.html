@@ -104,42 +104,12 @@
       flex-direction: column;
       opacity: 1;
       transition: opacity 0.22s var(--ease-spring);
-      animation: appFadeIn 0.28s var(--ease-spring);
+      animation: appFadeIn 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
     }
 
     body.page-leaving .app-container {
+      animation: none;
       opacity: 0;
-    }
-
-    /* Samsung-style standalone iOS Splash Screen (never shown on normal browser or Android WebAPK) */
-    .app-splash {
-      display: none;
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 9999;
-      background-color: #0f172a;
-      align-items: center;
-      justify-content: center;
-      opacity: 1;
-      transition: opacity 300ms ease;
-    }
-
-    .app-splash.active {
-      display: flex;
-    }
-
-    .app-splash.fade-out {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .app-splash-icon {
-      width: min(45vw, 188px);
-      height: min(45vw, 188px);
-      display: block;
-      flex-shrink: 0;
     }
 
     header {
@@ -1738,30 +1708,6 @@
   </style>
 </head>
 <body>
-  <div id="app-splash" class="app-splash" aria-hidden="true">
-    <svg class="app-splash-icon" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <rect width="512" height="512" fill="#0f172a"/>
-      <rect x="36" y="36" width="440" height="440" rx="84" fill="#1e293b" stroke="#10b981" stroke-width="16"/>
-      <rect x="116" y="128" width="280" height="36" rx="12" fill="#10b981"/>
-      <rect x="116" y="196" width="220" height="28" rx="10" fill="#94a3b8"/>
-      <rect x="116" y="254" width="260" height="28" rx="10" fill="#94a3b8"/>
-      <rect x="116" y="312" width="180" height="28" rx="10" fill="#94a3b8"/>
-      <circle cx="364" cy="348" r="54" fill="#10b981"/>
-      <path d="M342 349l15 15 31-33" fill="none" stroke="#0f172a" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-  </div>
-  <script>
-    (function () {
-      var isIosStandalone = window.navigator.standalone === true && !/Android/i.test(navigator.userAgent);
-      if (isIosStandalone) {
-        var splash = document.getElementById('app-splash');
-        if (splash) {
-          splash.classList.add('active');
-          window.__pmrSplashStart = (window.performance && typeof performance.now === 'function') ? performance.now() : Date.now();
-        }
-      }
-    })();
-  </script>
 
   <div class="app-container">
     <header>
@@ -1771,8 +1717,8 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 12h6"/><path d="M9 16h6"/></svg>
           </span>
           <span>PMR Editor</span>
-          <button type="button" id="versionBadgeBtn" class="version-badge" role="button" tabindex="0" title="Cek versi &amp; pembaruan aplikasi" aria-label="Versi 1.10.0 — Cek pembaruan aplikasi" onclick="openVersionCheckModal()">
-            <span>v1.10.0</span>
+          <button type="button" id="versionBadgeBtn" class="version-badge" role="button" tabindex="0" title="Cek versi &amp; pembaruan aplikasi" aria-label="Versi 1.10.1 — Cek pembaruan aplikasi" onclick="openVersionCheckModal()">
+            <span>v1.10.1</span>
             <span class="ui-icon icon-emerald" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
             </span>
@@ -1941,6 +1887,6 @@
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
   </button>
 
-  <script src="app.js?v=1.10.0"></script>
+  <script src="app.js?v=1.10.1"></script>
 </body>
 </html>

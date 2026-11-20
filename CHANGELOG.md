@@ -1,5 +1,13 @@
 # Changelog — PMR Editor
 
+## [v1.10.1] - 2026-11-19 (Bug Fix / Patch)
+- **Hapus Splash Screen Lapis Kedua (`#app-splash` & Timer `1.4` Detik)**: Menghapus elemen overlay HTML `#app-splash`, gaya CSS terkait, script deteksi inline, serta logika penahan `1.4` detik / `performance.now()` di `public/app.js` guna menghilangkan *glitch* lompatan ikon saat aplikasi dibuka di iPhone.
+- **Splash Screen 1 Lapis Murni Bawaan iOS**: Mempertahankan seluruh 10 tag `<link rel="apple-touch-startup-image">` (`public/splash-*.png`) di `index.html` dan daftarnya di `CORE_ASSETS` (`public/sw.js`) agar sistem iOS menampilkan splash screen secara instan tanpa transisi overlay ganda.
+- **Transisi Masuk `Smooth Fade-In` CSS Murni Anti-Bug Safari**: Memperhalus animasi `@keyframes appFadeIn` pada `.app-container` menjadi `380ms` (`cubic-bezier(0.22, 1, 0.36, 1) both`) dengan **hanya properti `opacity`** (tanpa `transform`) agar `position: sticky` toolbar logsheet di Safari iOS tetap presisi, menjaga warna dasar `#0f172a` pada `html` & `body`, serta memastikan event `pageshow` selalu memulihkan `opacity: 1` agar aman dari bug bfcache blank transparan.
+- **Sinkronisasi Versi 7 File**: Memperbarui versi ke `1.10.1` secara serentak pada `package.json`, `index.html`, `public/app.js`, `public/sw.js`, `public/version.json`, `README.md`, dan `CHANGELOG.md`.
+
+---
+
 ## [v1.10.0] - 2026-11-19 (Minor Update)
 - **Hapus Visual Mode Satset & Kunci Kecepatan Normal**: Menghapus kontrol/checkbox `Kecepatan Pengisian / Mode Satset` beserta referensi DOM/event/draft terkait di `index.html` dan `public/app.js`, serta mengunci playback ke kecepatan **Normal** dengan tetap mempertahankan optimasi profil delay & konsistensi struktur timestamp `.pmr`/`.json`.
 - **Tata Ulang Grid Control Card Presisi (Semua Viewport)**: Menata ulang `.controls-bar` menjadi 3 baris CSS Grid seimbang di HP kecil, tablet, maupun desktop — Baris 1 (`Pilih Operator` & `Import` tinggi seragam `44px` sejajar bawah), Baris 2 (`Cari Tag / Equipment` full-width `100%`), dan Baris 3 (`Format & Export` seimbang penuh rata kiri-kanan).
