@@ -222,7 +222,7 @@
     "tag": "U-FJ301 Standby",
     "unit": "Huruf",
     "label": "U-FJ301 Standby (U-FJ301 Standby)",
-    "type": "number"
+    "type": "text"
   },
   {
     "id": "p26",
@@ -375,7 +375,7 @@
     "tag": "U-EA504A/B",
     "unit": "A/B",
     "label": "U-EA504 (U-EA504A/B)",
-    "type": "number"
+    "type": "text"
   },
   {
     "id": "p43",

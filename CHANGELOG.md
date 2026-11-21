@@ -1,4 +1,12 @@
-# Changelog — PMR Editor
+# Changelog — DILOC Editor
+
+## [v1.11.0] - 2026-11-21 (Minor Update)
+- **Rebrand Total ke `DILOC Editor` & Kesiapan Rename Repo**: Mengubah identitas aplikasi menjadi `DILOC Editor` di `package.json` (`diloc-editor`), `index.html`, `public/manifest.json`, `public/app.js`, `public/sw.js` (`diloc-editor-v1.11.0`), `public/version.json`, `README.md`, dan `CHANGELOG.md`, dengan tetap menjaga `base: './'` dan key `localStorage` draft lama agar data tersimpan pengguna tidak ter-reset.
+- **Pembaruan Icon Header & Icon Dalam Kontrol**: Mengganti icon SVG header kiri atas agar identik dengan ikon utama aplikasi (bingkai emerald `#10b981`, latar `#1e293b`, bar & tanda centang), serta menambahkan icon SVG statis `pointer-events: none` di sisi kiri dalam kontrol `Pilih Operator`, `Cari Tag / Equipment`, dan `Format File` (`padding-left: 36px`).
+- **Control Card 1 Baris Desktop (`>= 1024px`) & 3 Baris Mobile/Tablet (`< 1024px`)**: Menyusun 5 kontrol dalam 1 baris sejajar (`height: 42px`, label disembunyikan rapi, `Format File` `min-width: 242px`) khusus browser desktop `>= 1024px`, sambil mempertahankan tata letak 3 baris seimbang pada layar `< 1024px`.
+- **Penyelarasan Master Data & Format Native DILOC Automator (`.json`)**: Memperbarui metadata `operator1.json` (`index: 1` `Temp. U-FA122` ke tag `TG-802`, parameter `A/B` & `ON/OFF` bertipe `"text"`) serta `operator2.json`/`operator3.json`, mengizinkan input teks bebas pada sel bertipe `"text"`, menyetel **`DILOC Automator (.json)`** sebagai format default (`DILOC_OpLap{op}_Preset_YYYY-MM-DD.json` v2.1.2 dengan `opLap`, `exportedAt`, `cells` 0-based `index`, `type`, `value` string, dan `checked`), serta memperbarui parser `Import` (`accept=".json,.pmr,..."`) agar otomatis mendeteksi `diloc-automator-preset`, pindah `opLap` bila berbeda, dan memetakan nilai + `checked` berdasarkan `cell.index`.
+
+---
 
 ## [v1.10.1] - 2026-11-19 (Bug Fix / Patch)
 - **Hapus Splash Screen Lapis Kedua (`#app-splash` & Timer `1.4` Detik)**: Menghapus elemen overlay HTML `#app-splash`, gaya CSS terkait, script deteksi inline, serta logika penahan `1.4` detik / `performance.now()` di `public/app.js` guna menghilangkan *glitch* lompatan ikon saat aplikasi dibuka di iPhone.

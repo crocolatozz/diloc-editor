@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pmr-editor-v1.10.1';
+const CACHE_NAME = 'diloc-editor-v1.11.0';
 const CORE_ASSETS = [
   './',
   './index.html',

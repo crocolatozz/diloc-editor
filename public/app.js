@@ -1,11 +1,12 @@
-const APP_VERSION = '1.10.1';
+const APP_VERSION = '1.11.0';
 const VERSION_STORAGE_KEY = 'pmr_editor_installed_version';
 const POST_UPDATE_TOAST_KEY = 'pmr_editor_post_update_reload';
 const STORAGE_PREFIX = 'pmr_editor_draft_v1_';
 const UPDATE_HIGHLIGHTS = [
-  'Penghapusan overlay splash HTML lapis kedua (#app-splash) & timer 1.4 detik agar pembukaan di iPhone bebas lompatan ikon',
-  'Optimalisasi splash screen 1 lapis murni bawaan iOS via 10 aset apple-touch-startup-image',
-  'Transisi masuk aplikasi CSS murni opacity-only 380ms (tanpa transform) yang aman untuk sticky toolbar & bfcache Safari iOS'
+  'Rebrand menyeluruh ke DILOC Editor & kesiapan penuh repositori diloc-editor di GitHub Pages',
+  'Penyelarasan penuh format preset JSON DILOC Automator v2.1.2 (import/export/share by cell.index, checked, & tipe text/number)',
+  'Tata letak Control Card ringkas 1 baris presisi di layar desktop (>=1024px) & 3 baris di mobile/tablet (<1024px)',
+  'Icon SVG kontekstual di dalam kontrol Operator, Pencarian, & Format File serta pembaruan icon header aplikasi'
 ];
 
 const SVG_ICON_PATHS = {
@@ -38,6 +39,7 @@ function createSvgIcon(name, size = 16, extraClass = '') {
 let currentParameters = [];
 let currentOperatorKey = 'operator1';
 let currentValues = {};
+let currentChecked = {};
 let currentViewMode = window.innerWidth < 768 ? 'vertical' : 'horizontal';
 let currentBadgeText = '';
 let importedTimingProfile = null;
@@ -477,8 +479,8 @@ async function showAppUpdateCard({ oldVer, newVer, isBackgroundUpdate = false })
     ? `Update ${targetVerLabel} Tersedia`
     : `Update Tersedia (v${newVer})`;
   const intro = isBackgroundUpdate
-    ? `Versi baru PMR Editor${newVer ? ` (v${newVer})` : ''} sudah tersedia. Muat ulang sekarang agar tampilan & fitur terbaru langsung aktif.`
-    : `Versi baru PMR Editor siap digunakan${oldVer && oldVer !== newVer ? ` (pembaruan dari v${oldVer})` : ''}. Muat ulang sekarang agar tampilan & fitur terbaru langsung aktif.`;
+    ? `Versi baru DILOC Editor${newVer ? ` (v${newVer})` : ''} sudah tersedia. Muat ulang sekarang agar tampilan & fitur terbaru langsung aktif.`
+    : `Versi baru DILOC Editor siap digunakan${oldVer && oldVer !== newVer ? ` (pembaruan dari v${oldVer})` : ''}. Muat ulang sekarang agar tampilan & fitur terbaru langsung aktif.`;
 
   const choice = await showModal({
     type: 'success',
@@ -1277,20 +1279,31 @@ function isValidNumericValue(val) {
   return /^-?(?:\d+\.?\d*|\.\d+)$/.test(val);
 }
 
+function isTextParameter(item) {
+  return Boolean(item && String(item.type || '').trim().toLowerCase() === 'text');
+}
+
 function isCellValueValid(val, item) {
   if (val === '') return true;
   const choiceOpts = getChoiceOptions(item);
   if (choiceOpts) {
     return choiceOpts.includes(val);
   }
+  if (isTextParameter(item)) {
+    return true;
+  }
   return isValidNumericValue(val);
 }
 
 function normalizeCellValue(val, item, strictSanitize = false) {
-  let str = normalizeDecimal(val);
+  if (val === null || val === undefined) return '';
   if (item && getChoiceOptions(item)) {
-    return str.trim().toLowerCase();
+    return normalizeDecimal(val).trim().toLowerCase();
   }
+  if (item && isTextParameter(item)) {
+    return String(val).trim();
+  }
+  const str = normalizeDecimal(val);
   if (strictSanitize) {
     return sanitizeNumericString(str);
   }
@@ -1299,7 +1312,7 @@ function normalizeCellValue(val, item, strictSanitize = false) {
 
 function persistDraftNow() {
   try {
-    const hasData = Object.values(currentValues).some(v => v !== '');
+    const hasData = Object.values(currentValues).some(v => v !== '') || Object.values(currentChecked).some(Boolean);
     if (!hasData && !importedTimingProfile && !currentBadgeText) {
       localStorage.removeItem(STORAGE_PREFIX + currentOperatorKey);
       updateDraftSavedIndicator(false);
@@ -1308,6 +1321,7 @@ function persistDraftNow() {
     const nowMs = Date.now();
     const payload = {
       values: currentValues,
+      checked: currentChecked,
       badge: currentBadgeText,
       timingProfile: importedTimingProfile,
       updatedAt: nowMs
@@ -1448,6 +1462,7 @@ async function loadParameter(operatorKey) {
   }
 
   currentValues = {};
+  currentChecked = {};
   importedTimingProfile = null;
 
   const draft = loadDraftFromStorage(operatorKey);
@@ -1455,6 +1470,9 @@ async function loadParameter(operatorKey) {
     currentParameters.forEach(p => {
       if (draft.values[p.id] !== undefined) {
         currentValues[p.id] = normalizeCellValue(draft.values[p.id], p, false);
+      }
+      if (draft.checked && typeof draft.checked === 'object' && draft.checked[p.id] !== undefined) {
+        currentChecked[p.id] = Boolean(draft.checked[p.id]);
       }
     });
     if (draft.timingProfile) {
@@ -1539,9 +1557,10 @@ function createCellControl(item, idx) {
     return select;
   }
 
+  const isFreeText = isTextParameter(item);
   const input = document.createElement('input');
   input.type = 'text';
-  input.inputMode = 'decimal';
+  input.inputMode = isFreeText ? 'text' : 'decimal';
   input.enterKeyHint = 'next';
   input.setAttribute('enterkeyhint', 'next');
   input.className = 'excel-input';
@@ -1553,12 +1572,21 @@ function createCellControl(item, idx) {
 
   if (currentVal === '') {
     input.classList.add('cell-empty');
-  } else if (!isValidNumericValue(currentVal)) {
+  } else if (!isFreeText && !isValidNumericValue(currentVal)) {
     input.classList.add('cell-warning');
   }
 
   input.addEventListener('input', () => {
     const raw = input.value;
+    if (isFreeText) {
+      currentValues[item.id] = raw;
+      input.classList.toggle('cell-empty', raw.trim() === '');
+      input.classList.remove('cell-warning');
+      updateFilledStats();
+      saveDraftToStorage(false);
+      return;
+    }
+
     const cursorPos = input.selectionStart;
     const sanitized = sanitizeNumericString(raw);
 
@@ -1582,6 +1610,16 @@ function createCellControl(item, idx) {
   });
 
   input.addEventListener('blur', () => {
+    if (isFreeText) {
+      const trimmed = input.value.trim();
+      if (input.value !== trimmed) input.value = trimmed;
+      currentValues[item.id] = trimmed;
+      input.classList.toggle('cell-empty', trimmed === '');
+      input.classList.remove('cell-warning');
+      updateFilledStats();
+      flushPendingDraftSave();
+      return;
+    }
     const val = currentValues[item.id] || '';
     input.classList.toggle('cell-warning', val !== '' && !isValidNumericValue(val));
     flushPendingDraftSave();
@@ -1832,6 +1870,7 @@ function jumpToNextEmpty() {
 function clearWorkspaceData() {
   cancelPendingDraftSave();
   currentValues = {};
+  currentChecked = {};
   importedTimingProfile = null;
   localStorage.removeItem(STORAGE_PREFIX + currentOperatorKey);
   setImportedFileBadge(null);
@@ -2066,23 +2105,36 @@ async function importData(event) {
     try {
       const content = e.target.result;
       const json = JSON.parse(content);
+      const isJsonExt = Boolean(file.name && file.name.toLowerCase().endsWith('.json'));
 
-      // Format 1: Backup JSON lama (json.data)
-      if (json && typeof json === 'object' && json.data && typeof json.data === 'object' && !Array.isArray(json.data)) {
-        const appliedCount = applyMappedValues(
-          currentParameters.map(p => {
-            if (json.data[p.id] === undefined) return '';
-            return json.data[p.id].value !== undefined ? json.data[p.id].value : json.data[p.id];
-          }),
-          file.name,
-          null
-        );
-        showToast(`Import "${file.name}" berhasil (${appliedCount} sel terisi)`, 'success');
-        await showImportResultModal(file.name, currentParameters.length, appliedCount);
+      // Format 1: DILOC Automator Native Preset (.json)
+      if (json && typeof json === 'object' && json.format === 'diloc-automator-preset') {
+        if (!Array.isArray(json.cells)) {
+          showToast('File JSON DILOC Automator tidak valid: daftar "cells" tidak ditemukan.', 'warning', 4500);
+          return;
+        }
+
+        const fileOpLap = parseInt(json.opLap, 10);
+        if ([1, 2, 3].includes(fileOpLap)) {
+          const targetOpKey = `operator${fileOpLap}`;
+          if (targetOpKey !== currentOperatorKey) {
+            const opSelect = document.getElementById('selectOperator');
+            if (opSelect) opSelect.value = targetOpKey;
+            await loadParameter(targetOpKey);
+            if (currentParameters.length === 0) {
+              showToast(`Gagal memuat parameter ${OPERATOR_SHORT_NAMES[targetOpKey] || targetOpKey}.`, 'error', 4200);
+              return;
+            }
+          }
+        }
+
+        const populatedCount = applyDilocAutomatorPreset(json.cells, file.name);
+        showToast(`Import "${file.name}" berhasil (${populatedCount} sel terisi)`, 'success');
+        await showImportResultModal(file.name, json.cells.length, populatedCount);
         return;
       }
 
-      // Format 2: PyMacroRecord (.pmr) / PMR Web Runner (.json)
+      // Format 2: PyMacroRecord (.pmr)
       if (json && typeof json === 'object' && Array.isArray(json.events)) {
         const extractedValues = parsePmrMacroEventsAccurate(json.events);
         const timingProfile = extractTimingProfile(json.events, json.settings || null);
@@ -2131,7 +2183,27 @@ async function importData(event) {
         return;
       }
 
-      // Format 3: Array JSON sederhana
+      if (isJsonExt) {
+        showToast('Format JSON tidak sesuai standar DILOC Automator ("diloc-automator-preset").', 'warning', 4500);
+        return;
+      }
+
+      // Format 3: Backup JSON lama (json.data)
+      if (json && typeof json === 'object' && json.data && typeof json.data === 'object' && !Array.isArray(json.data)) {
+        const appliedCount = applyMappedValues(
+          currentParameters.map(p => {
+            if (json.data[p.id] === undefined) return '';
+            return json.data[p.id].value !== undefined ? json.data[p.id].value : json.data[p.id];
+          }),
+          file.name,
+          null
+        );
+        showToast(`Import "${file.name}" berhasil (${appliedCount} sel terisi)`, 'success');
+        await showImportResultModal(file.name, currentParameters.length, appliedCount);
+        return;
+      }
+
+      // Format 4: Array JSON sederhana
       if (Array.isArray(json)) {
         const rawList = json.map(val => (typeof val === 'object' && val !== null) ? (val.value ?? val.val ?? '') : val);
         const populatedCount = applyMappedValues(rawList, file.name, null);
@@ -2140,7 +2212,7 @@ async function importData(event) {
         return;
       }
 
-      showToast('Format file tidak dikenali. Pilih file .pmr atau .json yang valid.', 'error', 4200);
+      showToast('Format file tidak dikenali. Pilih file .json DILOC Automator atau .pmr yang valid.', 'warning', 4200);
     } catch (err) {
       showToast(`File import rusak atau format salah (${err.message}).`, 'error', 4200);
     } finally {
@@ -2150,8 +2222,36 @@ async function importData(event) {
   reader.readAsText(file);
 }
 
+function applyDilocAutomatorPreset(cells, fileName) {
+  currentValues = {};
+  currentChecked = {};
+  importedTimingProfile = null;
+  let populatedCount = 0;
+
+  cells.forEach((cell) => {
+    if (!cell || typeof cell !== 'object') return;
+    const rawIdx = cell.index !== undefined ? parseInt(cell.index, 10) : -1;
+    if (!Number.isInteger(rawIdx) || rawIdx < 0 || rawIdx >= currentParameters.length) return;
+
+    const paramObj = currentParameters[rawIdx];
+    const rawVal = (cell.value !== undefined && cell.value !== null) ? String(cell.value) : '';
+    const cleanVal = normalizeCellValue(rawVal, paramObj, false);
+    currentValues[paramObj.id] = cleanVal;
+    currentChecked[paramObj.id] = Boolean(cell.checked);
+    if (cleanVal !== '') populatedCount++;
+  });
+
+  if (fileName) setImportedFileBadge(fileName, false);
+  renderActiveTable();
+  updateFilledStats();
+  saveDraftToStorage();
+  filterParameters();
+  return populatedCount;
+}
+
 function applyMappedValues(rawValues, fileName, timingProfile = null) {
   currentValues = {};
+  currentChecked = {};
   importedTimingProfile = timingProfile;
   let populatedCount = 0;
 
@@ -2329,12 +2429,18 @@ async function validateBeforeExport(actionType = 'export') {
     issues.push(`Format angka/pilihan belum lengkap pada ${invalidParams.length} parameter: ${preview}${more}.`);
   }
 
+  const formatSelect = document.getElementById('exportFormat');
+  const exportFormat = formatSelect ? formatSelect.value : 'diloc';
+
   const gapsBeforeLast = emptyParams.filter(e => e.idx < lastFilledIdx);
   if (gapsBeforeLast.length > 0) {
     if (firstFixIdx === null) firstFixIdx = gapsBeforeLast[0].idx;
     const preview = gapsBeforeLast.slice(0, 4).map(e => `#${e.item.index} ${e.item.tag}`).join(', ');
     const more = gapsBeforeLast.length > 4 ? ` (+${gapsBeforeLast.length - 4} lainnya)` : '';
-    issues.push(`Ada ${gapsBeforeLast.length} sel kosong di TENGAH urutan (${preview}${more}). Sel kosong tetap mengirim Key.right dan berisiko menggeser kolom di DILOC.`);
+    const gapMsg = exportFormat === 'pmr'
+      ? `Ada ${gapsBeforeLast.length} sel kosong di TENGAH urutan (${preview}${more}). Sel kosong tetap mengirim Key.right dan berisiko menggeser kolom di DILOC.`
+      : `Ada ${gapsBeforeLast.length} sel kosong di tengah urutan (${preview}${more}).`;
+    issues.push(gapMsg);
   }
 
   if (emptyParams.length > 0 && gapsBeforeLast.length < emptyParams.length) {
@@ -2391,10 +2497,39 @@ function getActivePlaybackTiming() {
 
 function buildExportArtifact() {
   const formatSelect = document.getElementById('exportFormat');
-  const format = formatSelect ? formatSelect.value : 'pmr';
+  const format = formatSelect ? formatSelect.value : 'diloc';
   const dateTag = getLocalDateTag();
-  const timing = getActivePlaybackTiming();
+  const opNumber = parseInt(currentOperatorKey.replace(/\D+/g, ''), 10) || 1;
 
+  if (format === 'diloc') {
+    const presetData = {
+      format: 'diloc-automator-preset',
+      version: '2.1.2',
+      opLap: opNumber,
+      exportedAt: new Date().toISOString(),
+      cells: currentParameters.map((p, idx) => {
+        const rawVal = currentValues[p.id];
+        const valStr = (rawVal !== undefined && rawVal !== null) ? String(rawVal).trim() : '';
+        const cellType = isTextParameter(p) ? 'text' : 'number';
+        return {
+          index: idx,
+          tag: p.tag || '',
+          equipment: p.equipment || '',
+          type: cellType,
+          value: valStr,
+          checked: Boolean(currentChecked[p.id])
+        };
+      })
+    };
+
+    return {
+      content: JSON.stringify(presetData, null, 2),
+      fileName: `DILOC_OpLap${opNumber}_Preset_${dateTag}.json`,
+      mimeType: 'application/json'
+    };
+  }
+
+  const timing = getActivePlaybackTiming();
   let lastFilledIdx = -1;
   currentParameters.forEach((p, idx) => {
     const val = (currentValues[p.id] || '').toString().trim();
@@ -2431,18 +2566,11 @@ function buildExportArtifact() {
     events: events
   };
 
-  const isWebRunner = format === 'webrunner';
-  const fileName = isWebRunner
-    ? `WebRunner_${currentOperatorKey}_${dateTag}.json`
-    : `Logsheet_${currentOperatorKey}_${dateTag}.pmr`;
-
   // Use application/octet-stream for .pmr so iOS Safari saves exact .pmr extension without renaming to .pmr.json
-  const mimeType = isWebRunner ? 'application/json' : 'application/octet-stream';
-
   return {
     content: JSON.stringify(macroData, null, 2),
-    fileName,
-    mimeType
+    fileName: `Logsheet_${currentOperatorKey}_${dateTag}.pmr`,
+    mimeType: 'application/octet-stream'
   };
 }
 

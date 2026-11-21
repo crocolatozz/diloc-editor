@@ -321,7 +321,7 @@
     "tag": "U-EA403A/B",
     "unit": "A/B",
     "label": "U-EA403 (U-EA403A/B)",
-    "type": "number"
+    "type": "text"
   },
   {
     "id": "p37",

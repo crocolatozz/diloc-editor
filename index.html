@@ -6,7 +6,8 @@
   <meta name="theme-color" content="#0f172a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="PMR Editor">
+  <meta name="apple-mobile-web-app-title" content="DILOC Editor">
+  <meta name="description" content="DILOC Editor — Editor Preset &amp; Macro Logsheet DILOC Pabrik Urea 1B">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -21,7 +22,7 @@
   <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash-1125x2436.png">
   <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash-828x1792.png">
   <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash-750x1334.png">
-  <title>PMR Editor</title>
+  <title>DILOC Editor</title>
   <style>
     :root {
       --bg-primary: #0f172a;
@@ -162,17 +163,14 @@
     }
 
     .app-title-icon {
-      width: 36px;
-      height: 36px;
+      width: 38px;
+      height: 38px;
       border-radius: 10px;
-      background: rgba(16, 185, 129, 0.14);
-      border: 1px solid rgba(16, 185, 129, 0.38);
-      color: var(--accent);
       display: inline-flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 12px rgba(16, 185, 129, 0.12);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.14);
     }
 
     .subtitle-text {
@@ -415,6 +413,27 @@
       width: 100%;
     }
 
+    .control-icon-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+
+    .control-leading-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 0;
+      z-index: 1;
+    }
+
     .field-label {
       font-size: 0.8rem;
       color: var(--text-muted);
@@ -447,6 +466,10 @@
       background-size: 13px 13px;
     }
 
+    .control-icon-wrap select {
+      padding-left: 36px;
+    }
+
     select:focus, input[type="text"]:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
@@ -459,6 +482,7 @@
     }
 
     .search-input-wrap input {
+      padding-left: 36px;
       padding-right: 34px;
     }
 
@@ -598,11 +622,16 @@
       width: 100%;
     }
 
+    .export-select-wrap {
+      height: 100%;
+      min-width: 0;
+    }
+
     .export-wrapper select {
       background-color: transparent;
       border: none;
       color: var(--text-main);
-      padding: 0 28px 0 12px;
+      padding: 0 28px 0 36px;
       height: 100%;
       font-size: 0.88rem;
       font-weight: 600;
@@ -1581,9 +1610,13 @@
         height: 44px;
       }
 
+      .search-input-wrap input {
+        padding: 0 34px 0 36px;
+      }
+
       select {
         font-size: 16px;
-        padding: 0 28px 0 10px;
+        padding: 0 28px 0 36px;
         height: 44px;
       }
 
@@ -1625,7 +1658,7 @@
         height: 100%;
         min-width: 0;
         font-size: 16px;
-        padding: 0 26px 0 10px;
+        padding: 0 26px 0 36px;
       }
 
       .export-group .btn-primary {
@@ -1705,6 +1738,64 @@
         height: 38px;
       }
     }
+
+    /* Desktop >= 1024px: Single-Row Compact Control Card */
+    @media (min-width: 1024px) {
+      .controls-bar {
+        grid-template-columns: minmax(185px, 200px) minmax(0, 1fr) auto auto;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .controls-bar .field-label {
+        display: none;
+      }
+
+      .operator-group {
+        grid-column: 1;
+        order: 1;
+      }
+
+      .search-group {
+        grid-column: 2;
+        order: 2;
+        width: 100%;
+      }
+
+      .import-group {
+        grid-column: 3;
+        order: 3;
+        height: 42px;
+      }
+
+      .import-group .btn {
+        height: 42px;
+        min-width: 108px;
+        padding: 0 16px;
+      }
+
+      .controls-bar select,
+      .controls-bar input[type="text"] {
+        height: 42px;
+      }
+
+      .export-group {
+        grid-column: 4;
+        order: 4;
+        width: auto;
+        height: 42px;
+        grid-template-columns: minmax(242px, auto) auto;
+      }
+
+      .export-group .export-select-wrap {
+        min-width: 242px;
+      }
+
+      .export-group .btn-primary {
+        min-width: 108px;
+        padding: 0 16px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1714,11 +1805,19 @@
       <div>
         <h1>
           <span class="app-title-icon" aria-hidden="true">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 12h6"/><path d="M9 16h6"/></svg>
+            <svg width="38" height="38" viewBox="20 20 472 472" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="36" y="36" width="440" height="440" rx="84" fill="#1e293b" stroke="#10b981" stroke-width="20"/>
+              <rect x="116" y="128" width="280" height="36" rx="12" fill="#10b981"/>
+              <rect x="116" y="196" width="220" height="28" rx="10" fill="#94a3b8"/>
+              <rect x="116" y="254" width="260" height="28" rx="10" fill="#94a3b8"/>
+              <rect x="116" y="312" width="180" height="28" rx="10" fill="#94a3b8"/>
+              <circle cx="364" cy="348" r="54" fill="#10b981"/>
+              <path d="M342 349l15 15 31-33" fill="none" stroke="#0f172a" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
           </span>
-          <span>PMR Editor</span>
-          <button type="button" id="versionBadgeBtn" class="version-badge" role="button" tabindex="0" title="Cek versi &amp; pembaruan aplikasi" aria-label="Versi 1.10.1 — Cek pembaruan aplikasi" onclick="openVersionCheckModal()">
-            <span>v1.10.1</span>
+          <span>DILOC Editor</span>
+          <button type="button" id="versionBadgeBtn" class="version-badge" role="button" tabindex="0" title="Cek versi &amp; pembaruan aplikasi" aria-label="Versi 1.11.0 — Cek pembaruan aplikasi" onclick="openVersionCheckModal()">
+            <span>v1.11.0</span>
             <span class="ui-icon icon-emerald" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
             </span>
@@ -1733,7 +1832,7 @@
             </span>
           </span>
         </h1>
-        <p class="subtitle-text">Editor Macro Logsheet DILOC Pabrik Urea 1B</p>
+        <p class="subtitle-text">Editor Preset &amp; Macro Logsheet DILOC Pabrik Urea 1B</p>
       </div>
       <div class="header-status" id="headerStatusContainer">
         <div class="status-row" id="headerDraftSlot">
@@ -1760,11 +1859,16 @@
     <div class="controls-bar">
       <div class="control-group operator-group">
         <label class="field-label" for="selectOperator">Pilih Operator</label>
-        <select id="selectOperator" onchange="loadParameter(this.value)">
-          <option value="operator1" selected>Operator 1 (167)</option>
-          <option value="operator2">Operator 2 (51)</option>
-          <option value="operator3">Operator 3 (45)</option>
-        </select>
+        <div class="control-icon-wrap">
+          <span class="control-leading-icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </span>
+          <select id="selectOperator" aria-label="Pilih Operator" onchange="loadParameter(this.value)">
+            <option value="operator1" selected>Operator 1 (167)</option>
+            <option value="operator2">Operator 2 (51)</option>
+            <option value="operator3">Operator 3 (45)</option>
+          </select>
+        </div>
       </div>
 
       <div class="file-input-wrapper import-group">
@@ -1774,13 +1878,16 @@
           </span>
           <span>Import</span>
         </button>
-        <input type="file" id="importFileInput" aria-label="Import file macro PMR atau JSON" onchange="importData(event)">
+        <input type="file" id="importFileInput" accept=".json,.pmr,application/json,text/plain" aria-label="Import file preset DILOC JSON atau macro PMR" onchange="importData(event)">
       </div>
 
       <div class="control-group search-group">
         <label class="field-label" for="searchInput">Cari Tag / Equipment</label>
         <div class="search-input-wrap">
-          <input type="text" id="searchInput" enterkeyhint="search" placeholder="Ketik tag atau equipment (cth: LG-801, GA504...)" oninput="filterParameters()">
+          <span class="control-leading-icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <input type="text" id="searchInput" aria-label="Cari Tag atau Equipment" enterkeyhint="search" placeholder="Cari tag / equipment (cth: LG-801, GA504...)" oninput="filterParameters()">
           <button type="button" id="clearSearchBtn" class="clear-search-btn" title="Hapus pencarian" aria-label="Hapus pencarian" onclick="clearSearch()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
@@ -1788,10 +1895,15 @@
       </div>
 
       <div class="export-wrapper export-group">
-        <select id="exportFormat" title="Pilih format file export">
-          <option value="pmr" selected>Macro PMR (.pmr)</option>
-          <option value="webrunner">Web Runner (.json)</option>
-        </select>
+        <div class="control-icon-wrap export-select-wrap">
+          <span class="control-leading-icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </span>
+          <select id="exportFormat" aria-label="Pilih format file export" title="Pilih format file export">
+            <option value="diloc" selected>DILOC Automator (.json)</option>
+            <option value="pmr">Macro PMR (.pmr)</option>
+          </select>
+        </div>
         <button type="button" class="btn btn-primary" onclick="handleExport()">
           <span class="ui-icon" aria-hidden="true">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -1887,6 +1999,6 @@
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
   </button>
 
-  <script src="app.js?v=1.10.1"></script>
+  <script src="app.js?v=1.11.0"></script>
 </body>
 </html>

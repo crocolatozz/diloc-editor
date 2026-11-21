@@ -12,9 +12,9 @@
     "id": "p2",
     "index": 2,
     "equipment": "Temp. U-FA122",
-    "tag": "TG-801",
+    "tag": "TG-802",
     "unit": "°C",
-    "label": "Temp. U-FA122 (TG-801)",
+    "label": "Temp. U-FA122 (TG-802)",
     "type": "number"
   },
   {
@@ -60,7 +60,7 @@
     "tag": "U-EA122A/B",
     "unit": "A/B",
     "label": "LUBE OIL COOLER U-EA122 (U-EA122A/B)",
-    "type": "number"
+    "type": "text"
   },
   {
     "id": "p8",
@@ -69,7 +69,7 @@
     "tag": "U-GA122A/B",
     "unit": "A/B",
     "label": "L/O Pump GB101-GA122 (U-GA122A/B)",
-    "type": "number"
+    "type": "text"
   },
   {
     "id": "p9",
@@ -186,7 +186,7 @@
     "tag": "U-GA107A/B",
     "unit": "A/B",
     "label": "Return Condensate Pump U-GA107A/B (U-GA107A/B)",
-    "type": "number"
+    "type": "text"
   },
   {
     "id": "p22",
@@ -699,7 +699,7 @@
     "tag": "U-GA103A/B",
     "unit": "A/B",
     "label": "Ammonia Boost-up Pump (U-GA103A/B)",
-    "type": "number"
+    "type": "text"
   },
   {
     "id": "p79",
