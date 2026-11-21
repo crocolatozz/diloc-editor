@@ -1742,7 +1742,9 @@
     /* Desktop >= 1024px: Single-Row Compact Control Card */
     @media (min-width: 1024px) {
       .controls-bar {
-        grid-template-columns: minmax(185px, 200px) minmax(0, 1fr) auto auto;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
         align-items: center;
         gap: 10px;
       }
@@ -1752,48 +1754,98 @@
       }
 
       .operator-group {
-        grid-column: 1;
         order: 1;
+        flex: 0 0 190px;
+        width: 190px;
+        height: 42px;
+        box-sizing: border-box;
       }
 
-      .search-group {
-        grid-column: 2;
+      .operator-group .control-icon-wrap {
+        height: 42px;
+      }
+
+      .control-group.search-group {
         order: 2;
+        flex: 1 1 auto;
+        min-width: 180px;
+        width: auto;
+        height: 42px;
+        box-sizing: border-box;
+      }
+
+      .search-group .search-input-wrap {
+        height: 42px;
         width: 100%;
       }
 
       .import-group {
-        grid-column: 3;
         order: 3;
+        flex: 0 0 auto;
+        width: auto;
+        margin: 0;
         height: 42px;
+        box-sizing: border-box;
       }
 
       .import-group .btn {
         height: 42px;
+        width: auto;
         min-width: 108px;
         padding: 0 16px;
+        box-sizing: border-box;
       }
 
       .controls-bar select,
       .controls-bar input[type="text"] {
         height: 42px;
+        box-sizing: border-box;
       }
 
       .export-group {
-        grid-column: 4;
-        order: 4;
-        width: auto;
-        height: 42px;
-        grid-template-columns: minmax(242px, auto) auto;
+        display: contents;
       }
 
       .export-group .export-select-wrap {
-        min-width: 242px;
+        order: 4;
+        flex: 0 0 238px;
+        min-width: 238px;
+        width: 238px;
+        height: 42px;
+        box-sizing: border-box;
+        background-color: var(--bg-input);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        overflow: hidden;
+        transition: border-color 0.2s, box-shadow 0.2s;
+      }
+
+      .export-group .export-select-wrap:focus-within {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+      }
+
+      .export-group select {
+        height: 100%;
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+      }
+
+      .export-group select:focus {
+        box-shadow: none;
       }
 
       .export-group .btn-primary {
+        order: 5;
+        flex: 0 0 auto;
+        width: auto;
+        margin: 0;
+        height: 42px;
         min-width: 108px;
         padding: 0 16px;
+        border-radius: 8px;
+        box-sizing: border-box;
       }
     }
   </style>
@@ -1816,8 +1868,8 @@
             </svg>
           </span>
           <span>DILOC Editor</span>
-          <button type="button" id="versionBadgeBtn" class="version-badge" role="button" tabindex="0" title="Cek versi &amp; pembaruan aplikasi" aria-label="Versi 1.11.0 — Cek pembaruan aplikasi" onclick="openVersionCheckModal()">
-            <span>v1.11.0</span>
+          <button type="button" id="versionBadgeBtn" class="version-badge" role="button" tabindex="0" title="Cek versi &amp; pembaruan aplikasi" aria-label="Versi 1.11.1 — Cek pembaruan aplikasi" onclick="openVersionCheckModal()">
+            <span>v1.11.1</span>
             <span class="ui-icon icon-emerald" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
             </span>
@@ -1999,6 +2051,6 @@
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
   </button>
 
-  <script src="app.js?v=1.11.0"></script>
+  <script src="app.js?v=1.11.1"></script>
 </body>
 </html>

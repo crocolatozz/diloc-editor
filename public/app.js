@@ -1,12 +1,11 @@
-const APP_VERSION = '1.11.0';
+const APP_VERSION = '1.11.1';
 const VERSION_STORAGE_KEY = 'pmr_editor_installed_version';
 const POST_UPDATE_TOAST_KEY = 'pmr_editor_post_update_reload';
 const STORAGE_PREFIX = 'pmr_editor_draft_v1_';
 const UPDATE_HIGHLIGHTS = [
-  'Rebrand menyeluruh ke DILOC Editor & kesiapan penuh repositori diloc-editor di GitHub Pages',
-  'Penyelarasan penuh format preset JSON DILOC Automator v2.1.2 (import/export/share by cell.index, checked, & tipe text/number)',
-  'Tata letak Control Card ringkas 1 baris presisi di layar desktop (>=1024px) & 3 baris di mobile/tablet (<1024px)',
-  'Icon SVG kontekstual di dalam kontrol Operator, Pencarian, & Format File serta pembaruan icon header aplikasi'
+  'Perbaikan tata letak Control Card browser desktop (>=1024px) menjadi 1 baris horizontal sejajar sempurna untuk ke-5 kontrol',
+  'Meratakan pembungkus Format & Export via display: contents dan Flexbox nowrap dengan tinggi seragam 42px box-sizing: border-box',
+  'Menjaga susunan 3 baris responsif di mobile/tablet (<1024px) serta seluruh fungsi native DILOC Automator (.json) & Macro PMR (.pmr)'
 ];
 
 const SVG_ICON_PATHS = {

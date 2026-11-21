@@ -1,5 +1,12 @@
 # Changelog — DILOC Editor
 
+## [v1.11.1] - 2026-11-21 (Bug Fix / Patch)
+- **Perbaikan Tata Letak Control Card 1 Baris Desktop (`>= 1024px`)**: Mengubah `.controls-bar` pada `@media (min-width: 1024px)` menjadi Flexbox horizontal `nowrap` (`align-items: center; gap: 10px;`) dan meratakan pembungkus `.export-group` dengan `display: contents;` sehingga ke-5 kontrol tampil dalam 1 baris sejajar sempurna dari kiri ke kanan (`Pilih Operator` `190px`, `Cari Tag / Equipment` `flex: 1 1 auto; min-width: 180px`, `Import` `auto`, `Format File` `238px`, dan `Export` `auto`).
+- **Kesejajaran Tinggi `42px` & Urutan Cascade CSS**: Menyembunyikan `<label>` kontrol di desktop `>= 1024px`, menyamakan tinggi `height: 42px; box-sizing: border-box;` pada seluruh 5 kontrol tanpa memotong teks `DILOC Automator (.json)`, serta mempertahankan aturan `@media (min-width: 1024px)` di bagian paling bawah stylesheet agar susunan 3 baris di layar mobile/tablet (`< 1024px`) tetap utuh.
+- **Sinkronisasi Versi 7 File**: Memperbarui versi ke `1.11.1` pada `package.json`, `index.html`, `public/app.js`, `public/sw.js` (`diloc-editor-v1.11.1`), `public/version.json`, `README.md`, dan `CHANGELOG.md`.
+
+---
+
 ## [v1.11.0] - 2026-11-21 (Minor Update)
 - **Rebrand Total ke `DILOC Editor` & Kesiapan Rename Repo**: Mengubah identitas aplikasi menjadi `DILOC Editor` di `package.json` (`diloc-editor`), `index.html`, `public/manifest.json`, `public/app.js`, `public/sw.js` (`diloc-editor-v1.11.0`), `public/version.json`, `README.md`, dan `CHANGELOG.md`, dengan tetap menjaga `base: './'` dan key `localStorage` draft lama agar data tersimpan pengguna tidak ter-reset.
 - **Pembaruan Icon Header & Icon Dalam Kontrol**: Mengganti icon SVG header kiri atas agar identik dengan ikon utama aplikasi (bingkai emerald `#10b981`, latar `#1e293b`, bar & tanda centang), serta menambahkan icon SVG statis `pointer-events: none` di sisi kiri dalam kontrol `Pilih Operator`, `Cari Tag / Equipment`, dan `Format File` (`padding-left: 36px`).

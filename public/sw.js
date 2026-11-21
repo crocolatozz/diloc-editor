@@ -1,4 +1,4 @@
-const CACHE_NAME = 'diloc-editor-v1.11.0';
+const CACHE_NAME = 'diloc-editor-v1.11.1';
 const CORE_ASSETS = [
   './',
   './index.html',
