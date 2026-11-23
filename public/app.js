@@ -1,11 +1,22 @@
-const APP_VERSION = '1.11.1';
+const APP_VERSION = '1.12.2';
+const MASTER_SCHEMA_VERSION = '1.12.2';
 const VERSION_STORAGE_KEY = 'pmr_editor_installed_version';
 const POST_UPDATE_TOAST_KEY = 'pmr_editor_post_update_reload';
 const STORAGE_PREFIX = 'pmr_editor_draft_v1_';
+const FIRESTORE_PROJECT_ID = 'urea1b-project-database';
+const FIRESTORE_MASTER_COLLECTION = 'diloc_master_parameter';
+const FIRESTORE_BASE_URL = `https://firestore.googleapis.com/v1/projects/${FIRESTORE_PROJECT_ID}/databases/(default)/documents/${FIRESTORE_MASTER_COLLECTION}`;
+const MASTER_CACHE_PREFIX = 'diloc_master_cache_v1_';
+const MASTER_SYNC_META_KEY = 'diloc_master_sync_meta_v1';
+const EXPECTED_OPERATOR_COUNTS = {
+  operator1: 167,
+  operator2: 51,
+  operator3: 45
+};
 const UPDATE_HIGHLIGHTS = [
-  'Perbaikan tata letak Control Card browser desktop (>=1024px) menjadi 1 baris horizontal sejajar sempurna untuk ke-5 kontrol',
-  'Meratakan pembungkus Format & Export via display: contents dan Flexbox nowrap dengan tinggi seragam 42px box-sizing: border-box',
-  'Menjaga susunan 3 baris responsif di mobile/tablet (<1024px) serta seluruh fungsi native DILOC Automator (.json) & Macro PMR (.pmr)'
+  'Normalisasi pilihan default "-" pada dropdown (ON/OFF, A/B, Huruf) sebagai sel kosong di hitungan Terisi, Sel Kosong, validasi, dan export JSON/PMR',
+  'Pembaruan stempel waktu sinkronisasi Firestore menjadi format waktu lokal perangkat (Disinkronkan DD/MM/YY HH:mm) yang aman dari Invalid Date',
+  'Penambahan penanda schemaVersion pada dokumen master Firestore saat Push dan penguncian Auto-Pull agar data lama tanpa schemaVersion terbaru tidak menimpa master lokal'
 ];
 
 const SVG_ICON_PATHS = {
@@ -20,6 +31,7 @@ const SVG_ICON_PATHS = {
   chevronDown: '<polyline points="6 9 12 15 18 9"/>',
   fileText: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
   database: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>',
+  cloudUpload: '<path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/>',
   trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>',
   download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
   search: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
@@ -63,6 +75,9 @@ let activeToastRemoveTimer = null;
 let activeToastEl = null;
 let searchNoMatchToastTimer = null;
 let lastSearchNoMatchQuery = '';
+let masterSyncStatus = 'local'; // 'local' | 'synced'
+let isPushingMaster = false;
+let activeModalSyncUpdater = null;
 
 const OPERATOR_LABELS = {
   operator1: 'Operator 1 (167 Parameter)',
@@ -82,10 +97,10 @@ document.addEventListener('DOMContentLoaded', () => {
   setupNativeTouchGuards();
   setupModalEvents();
   setupScrollTopButton();
-  syncResponsiveBadgePlacement();
   updateOnlineStatusUI();
   updateLayoutContainerVisibility();
   loadParameter(defaultOp);
+  autoPullMasterFromFirestore();
   initPwaForceUpdate();
 });
 
@@ -125,7 +140,10 @@ function setupNativeTouchGuards() {
   }, { passive: false });
 }
 
-window.addEventListener('online', updateOnlineStatusUI);
+window.addEventListener('online', () => {
+  updateOnlineStatusUI();
+  autoPullMasterFromFirestore();
+});
 window.addEventListener('offline', updateOnlineStatusUI);
 
 function updateOnlineStatusUI() {
@@ -135,7 +153,6 @@ function updateOnlineStatusUI() {
 }
 
 window.addEventListener('resize', () => {
-  syncResponsiveBadgePlacement();
   const preferred = window.innerWidth < 768 ? 'vertical' : 'horizontal';
   if (preferred !== currentViewMode) {
     currentViewMode = preferred;
@@ -144,27 +161,6 @@ window.addEventListener('resize', () => {
     filterParameters();
   }
 });
-
-/* ================= RESPONSIVE BADGE RELOCATION ================= */
-
-function syncResponsiveBadgePlacement() {
-  const isMobile = window.innerWidth < 768;
-  const filledBadge = document.getElementById('filledCountBadge');
-  const draftBadge = document.getElementById('draftSavedBadge');
-  const mobileSlot = document.getElementById('mobileToolbarStatusSlot');
-  const desktopHeaderSlot = document.getElementById('headerDraftSlot');
-  const desktopToolbarSlot = document.getElementById('desktopToolbarRightSlot');
-
-  if (!filledBadge || !draftBadge || !mobileSlot || !desktopHeaderSlot || !desktopToolbarSlot) return;
-
-  if (isMobile) {
-    if (filledBadge.parentElement !== mobileSlot) mobileSlot.appendChild(filledBadge);
-    if (draftBadge.parentElement !== mobileSlot) mobileSlot.appendChild(draftBadge);
-  } else {
-    if (draftBadge.parentElement !== desktopHeaderSlot) desktopHeaderSlot.appendChild(draftBadge);
-    if (filledBadge.parentElement !== desktopToolbarSlot) desktopToolbarSlot.appendChild(filledBadge);
-  }
-}
 
 /* ================= TOAST NOTIFICATION & ANTI-FLICKER TRANSITIONS ================= */
 
@@ -199,10 +195,10 @@ function showToast(message, variant = 'success', duration = 3400) {
   // Smart replace: remove any active toast immediately so table is never stacked over
   dismissActiveToast(true);
 
-  const safeVariant = ['success', 'warning', 'error'].includes(variant) ? variant : 'success';
+  const safeVariant = ['success', 'info', 'warning', 'error'].includes(variant) ? variant : 'success';
   const iconName = safeVariant === 'success'
     ? 'checkCircle'
-    : (safeVariant === 'warning' ? 'alertTriangle' : 'alertOctagon');
+    : (safeVariant === 'info' ? 'loader' : (safeVariant === 'warning' ? 'alertTriangle' : 'alertOctagon'));
 
   const toast = document.createElement('div');
   toast.className = `app-toast ${safeVariant}`;
@@ -212,7 +208,7 @@ function showToast(message, variant = 'success', duration = 3400) {
   const iconBox = document.createElement('span');
   iconBox.className = 'app-toast-icon';
   iconBox.setAttribute('aria-hidden', 'true');
-  iconBox.appendChild(createSvgIcon(iconName, 16));
+  iconBox.appendChild(createSvgIcon(iconName, 16, safeVariant === 'info' ? 'svg-spin' : ''));
 
   const msgSpan = document.createElement('span');
   msgSpan.className = 'app-toast-msg';
@@ -372,6 +368,13 @@ function initPwaForceUpdate() {
   } catch (_) {}
 
   const prevVersion = localStorage.getItem(VERSION_STORAGE_KEY);
+  if (prevVersion && prevVersion !== APP_VERSION) {
+    ['operator1', 'operator2', 'operator3'].forEach((opKey) => {
+      try {
+        localStorage.removeItem(getMasterCacheKey(opKey));
+      } catch (_) {}
+    });
+  }
   localStorage.setItem(VERSION_STORAGE_KEY, APP_VERSION);
 
   if (justReloadedAfterUpdate || (prevVersion && prevVersion !== APP_VERSION)) {
@@ -571,23 +574,6 @@ async function fetchAllChangelogSections() {
   }
 }
 
-function getServiceWorkerStatusSummary(reg) {
-  const swSupported = 'serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:');
-  if (!swSupported) {
-    return { label: 'Mode Lokal / Non-SW', tone: 'amber' };
-  }
-  if (reg && reg.waiting) {
-    return { label: 'Update Menunggu Reload', tone: 'sky' };
-  }
-  if (reg && reg.installing) {
-    return { label: 'Mengunduh Update...', tone: 'sky' };
-  }
-  if ((reg && reg.active) || navigator.serviceWorker.controller) {
-    return { label: 'Aktif & Siap Offline', tone: 'emerald' };
-  }
-  return { label: 'Menyiapkan Cache...', tone: 'amber' };
-}
-
 function renderChangelogAccordion(containerEl, sections) {
   if (!containerEl) return;
   containerEl.innerHTML = '';
@@ -666,6 +652,383 @@ function renderChangelogAccordion(containerEl, sections) {
   containerEl.appendChild(list);
 }
 
+/* ================= FIRESTORE REST API MASTER SYNC ================= */
+
+function getMasterCacheKey(operatorKey) {
+  return `${MASTER_CACHE_PREFIX}${operatorKey}`;
+}
+
+function normalizeMasterParameters(rawList) {
+  if (!Array.isArray(rawList) || rawList.length === 0) return null;
+  return rawList.map((item, i) => {
+    const tag = (item && item.tag !== null && item.tag !== undefined) ? String(item.tag) : '';
+    const equipment = (item && item.equipment !== null && item.equipment !== undefined) ? String(item.equipment) : '';
+    const unit = (item && item.unit !== null && item.unit !== undefined) ? String(item.unit) : '';
+    const rawType = String((item && item.type) || 'number').trim().toLowerCase();
+    const type = rawType === 'text' ? 'text' : 'number';
+    return {
+      id: `p${i + 1}`,
+      index: i + 1,
+      equipment,
+      tag,
+      unit,
+      label: equipment ? (tag ? `${equipment} (${tag})` : equipment) : tag,
+      type
+    };
+  });
+}
+
+function parseMasterSyncDate(tsInput) {
+  if (tsInput === null || tsInput === undefined || tsInput === '') return null;
+  if (tsInput instanceof Date) {
+    return isNaN(tsInput.getTime()) ? null : tsInput;
+  }
+  if (typeof tsInput === 'number') {
+    if (!Number.isFinite(tsInput) || tsInput <= 0) return null;
+    const d = new Date(tsInput);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  const str = String(tsInput).trim();
+  if (!str) return null;
+  if (/^\d+$/.test(str)) {
+    const num = Number(str);
+    if (!Number.isFinite(num) || num <= 0) return null;
+    const d = new Date(num);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function formatMasterSyncTimestamp(tsInput) {
+  const dateObj = parseMasterSyncDate(tsInput);
+  if (!dateObj) return '';
+  const dd = String(dateObj.getDate()).padStart(2, '0');
+  const mo = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const yy = String(dateObj.getFullYear() % 100).padStart(2, '0');
+  const hh = String(dateObj.getHours()).padStart(2, '0');
+  const mi = String(dateObj.getMinutes()).padStart(2, '0');
+  return `${dd}/${mo}/${yy} ${hh}:${mi}`;
+}
+
+function getMasterSyncMeta() {
+  try {
+    const raw = localStorage.getItem(MASTER_SYNC_META_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const candidate = parsed.syncedAtMs ?? parsed.syncedAt;
+    const dateObj = parseMasterSyncDate(candidate);
+    if (!dateObj) return null;
+    const formatted = formatMasterSyncTimestamp(dateObj);
+    if (!formatted) return null;
+    return {
+      syncedAt: dateObj.toISOString(),
+      syncedAtMs: dateObj.getTime(),
+      formatted
+    };
+  } catch (_) {}
+  return null;
+}
+
+function saveMasterSyncMeta(dateInput = new Date()) {
+  try {
+    const dateObj = parseMasterSyncDate(dateInput) || new Date();
+    localStorage.setItem(MASTER_SYNC_META_KEY, JSON.stringify({
+      syncedAt: dateObj.toISOString(),
+      syncedAtMs: dateObj.getTime()
+    }));
+  } catch (_) {}
+}
+
+function updateOperatorOptionLabelCount(operatorKey, count) {
+  if (!operatorKey || !Number.isFinite(count) || count <= 0) return;
+  const opNum = parseInt(operatorKey.replace(/\D+/g, ''), 10);
+  if (![1, 2, 3].includes(opNum)) return;
+  OPERATOR_LABELS[operatorKey] = `Operator ${opNum} (${count} Parameter)`;
+  const opSelect = document.getElementById('selectOperator');
+  if (opSelect) {
+    const opt = Array.from(opSelect.options).find(o => o.value === operatorKey);
+    if (opt) opt.textContent = `Operator ${opNum} (${count})`;
+  }
+}
+
+function getCachedFirestoreMaster(operatorKey) {
+  try {
+    const raw = localStorage.getItem(getMasterCacheKey(operatorKey));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const expectedCount = EXPECTED_OPERATOR_COUNTS[operatorKey];
+    if (Array.isArray(parsed) && parsed.length > 0 && (!expectedCount || parsed.length === expectedCount)) {
+      return normalizeMasterParameters(parsed);
+    }
+  } catch (_) {}
+  return null;
+}
+
+function saveCachedFirestoreMaster(operatorKey, items) {
+  try {
+    const normalized = normalizeMasterParameters(items);
+    if (!normalized || normalized.length === 0) return;
+    localStorage.setItem(getMasterCacheKey(operatorKey), JSON.stringify(normalized));
+  } catch (_) {}
+}
+
+function parseFirestoreMasterDoc(docJson) {
+  const fields = docJson && docJson.fields;
+  if (!fields || typeof fields !== 'object') return null;
+
+  const arrayField = fields.parameters
+    || fields.cells
+    || fields.items
+    || fields.data
+    || Object.values(fields).find(v => v && v.arrayValue && Array.isArray(v.arrayValue.values));
+
+  const rawValues = arrayField && arrayField.arrayValue && Array.isArray(arrayField.arrayValue.values)
+    ? arrayField.arrayValue.values
+    : null;
+  if (!rawValues || rawValues.length === 0) return null;
+
+  const normalized = [];
+  rawValues.forEach((entry, idx) => {
+    const f = entry && entry.mapValue && entry.mapValue.fields;
+    if (!f || typeof f !== 'object') return;
+    const rawIdx = Number(
+      (f.index && (f.index.integerValue ?? f.index.doubleValue ?? f.index.stringValue)) ?? idx
+    );
+    const sortIdx = Number.isFinite(rawIdx) ? rawIdx : idx;
+    const tag = String((f.tag && f.tag.stringValue) || '');
+    const equipment = String((f.equipment && f.equipment.stringValue) || '');
+    const unit = String((f.unit && f.unit.stringValue) || '');
+    const rawType = String((f.type && f.type.stringValue) || 'number').trim().toLowerCase();
+    const type = rawType === 'text' ? 'text' : 'number';
+    normalized.push({ sortIdx, tag, equipment, unit, type });
+  });
+
+  if (normalized.length === 0) return null;
+  normalized.sort((a, b) => a.sortIdx - b.sortIdx);
+
+  return normalizeMasterParameters(normalized);
+}
+
+function extractFirestoreSchemaVersion(docJson) {
+  const fields = docJson && docJson.fields;
+  if (!fields || typeof fields !== 'object') return '';
+  const svField = fields.schemaVersion;
+  if (!svField || typeof svField !== 'object') return '';
+  const raw = svField.stringValue ?? svField.integerValue ?? svField.doubleValue ?? '';
+  const cleaned = String(raw).replace(/^v/i, '').trim();
+  return /^\d+\.\d+\.\d+$/.test(cleaned) ? cleaned : '';
+}
+
+function buildFirestoreMasterPayload(opNum, params) {
+  return {
+    fields: {
+      opLap: { integerValue: String(opNum) },
+      schemaVersion: { stringValue: MASTER_SCHEMA_VERSION },
+      updatedAt: { stringValue: new Date().toISOString() },
+      parameters: {
+        arrayValue: {
+          values: params.map((p, idx) => ({
+            mapValue: {
+              fields: {
+                index: { integerValue: String(idx) },
+                tag: { stringValue: String(p.tag || '') },
+                equipment: { stringValue: String(p.equipment || '') },
+                type: { stringValue: isTextParameter(p) ? 'text' : 'number' },
+                unit: { stringValue: (p.unit !== null && p.unit !== undefined) ? String(p.unit) : '' }
+              }
+            }
+          }))
+        }
+      }
+    }
+  };
+}
+
+async function loadLocalMasterDataset(operatorKey) {
+  try {
+    const res = await fetch(`./data/${operatorKey}.json`, { cache: 'no-store' });
+    if (res && res.ok) {
+      const json = await res.json();
+      const normalized = normalizeMasterParameters(json);
+      if (normalized && normalized.length > 0) return normalized;
+    }
+  } catch (_) {}
+  return getCachedFirestoreMaster(operatorKey);
+}
+
+function refreshMasterSyncBadgeUI() {
+  if (typeof activeModalSyncUpdater === 'function') {
+    activeModalSyncUpdater();
+  }
+}
+
+async function autoPullMasterFromFirestore() {
+  if (!navigator.onLine) return;
+  if (location.protocol !== 'http:' && location.protocol !== 'https:') return;
+
+  const opNums = [1, 2, 3];
+  const controller = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), 6000) : null;
+
+  try {
+    const results = await Promise.all(
+      opNums.map(async (num) => {
+        const res = await fetch(`${FIRESTORE_BASE_URL}/oplap_${num}`, {
+          cache: 'no-store',
+          signal: controller ? controller.signal : undefined
+        });
+        if (!res || !res.ok) return null;
+        const docJson = await res.json();
+        return {
+          params: parseFirestoreMasterDoc(docJson),
+          schemaVersion: extractFirestoreSchemaVersion(docJson)
+        };
+      })
+    );
+    if (timer) clearTimeout(timer);
+
+    const allDocsValid = results.every((entry, idx) => {
+      if (!entry || !Array.isArray(entry.params)) return false;
+      const opKey = `operator${opNums[idx]}`;
+      const expectedCount = EXPECTED_OPERATOR_COUNTS[opKey];
+      if (entry.params.length !== expectedCount) return false;
+      if (!entry.schemaVersion) return false;
+      return compareSemver(entry.schemaVersion, MASTER_SCHEMA_VERSION) >= 0;
+    });
+
+    if (!allDocsValid) {
+      return;
+    }
+
+    opNums.forEach((num, idx) => {
+      const opKey = `operator${num}`;
+      const list = results[idx].params;
+      saveCachedFirestoreMaster(opKey, list);
+      updateOperatorOptionLabelCount(opKey, list.length);
+    });
+
+    saveMasterSyncMeta(new Date());
+    masterSyncStatus = 'synced';
+    refreshMasterSyncBadgeUI();
+
+    const activeIdx = parseInt(currentOperatorKey.replace(/\D+/g, ''), 10) - 1;
+    const pulledEntry = results[activeIdx];
+    const pulledActive = pulledEntry ? pulledEntry.params : null;
+    if (Array.isArray(pulledActive) && pulledActive.length > 0) {
+      const prevSig = JSON.stringify(currentParameters.map(p => [p.tag, p.equipment, p.type, p.unit]));
+      const nextSig = JSON.stringify(pulledActive.map(p => [p.tag, p.equipment, p.type, p.unit]));
+      if (prevSig !== nextSig) {
+        currentParameters = pulledActive.map((item) => ({
+          ...item,
+          _searchText: `${item.index} ${item.equipment} ${item.tag} ${item.label}`.toLowerCase()
+        }));
+        renderActiveTable();
+        updateFilledStats();
+        filterParameters();
+      }
+    }
+  } catch (_) {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function handlePushMasterToFirestore() {
+  if (isPushingMaster) return;
+  triggerHaptic(10);
+
+  if (!navigator.onLine) {
+    showToast('Perangkat sedang offline. Push ke Firestore memerlukan koneksi internet.', 'warning', 3800);
+    return;
+  }
+
+  const [d1, d2, d3] = await Promise.all([
+    loadLocalMasterDataset('operator1'),
+    loadLocalMasterDataset('operator2'),
+    loadLocalMasterDataset('operator3')
+  ]);
+
+  const datasetsValid = Array.isArray(d1) && d1.length === EXPECTED_OPERATOR_COUNTS.operator1
+    && Array.isArray(d2) && d2.length === EXPECTED_OPERATOR_COUNTS.operator2
+    && Array.isArray(d3) && d3.length === EXPECTED_OPERATOR_COUNTS.operator3
+    && [d1, d2, d3].every((list) =>
+      list.every((item) => item && typeof item === 'object'
+        && typeof item.tag === 'string'
+        && typeof item.equipment === 'string'
+        && typeof item.unit === 'string'
+        && (item.type === 'number' || item.type === 'text'))
+    );
+
+  if (!datasetsValid) {
+    showToast('Data master parameter lokal tidak lengkap atau belum termuat.', 'error', 4200);
+    return;
+  }
+
+  const confirmed = await showModal({
+    type: 'warning',
+    title: 'Push Database Master ke Firestore?',
+    paragraphs: [
+      `Data master parameter lokal Op 1 (${d1.length}), Op 2 (${d2.length}), dan Op 3 (${d3.length}) akan dikirim ke Firestore collection "${FIRESTORE_MASTER_COLLECTION}" (${FIRESTORE_PROJECT_ID}).`
+    ],
+    actions: [
+      { label: 'Ya, Push Sekarang', icon: 'cloudUpload', value: true, className: 'btn btn-primary' },
+      { label: 'Batal', icon: 'x', value: false, className: 'btn btn-ghost' }
+    ],
+    dismissValue: false
+  });
+
+  if (!confirmed) {
+    openVersionCheckModal();
+    return;
+  }
+
+  isPushingMaster = true;
+  openVersionCheckModal();
+  refreshMasterSyncBadgeUI();
+  showToast('Mengirim master parameter ke cloud...', 'info', 0);
+
+  const controller = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), 15000) : null;
+
+  try {
+    const entries = [
+      { opNum: 1, key: 'operator1', data: d1 },
+      { opNum: 2, key: 'operator2', data: d2 },
+      { opNum: 3, key: 'operator3', data: d3 }
+    ];
+
+    for (const entry of entries) {
+      const payload = buildFirestoreMasterPayload(entry.opNum, entry.data);
+      const res = await fetch(`${FIRESTORE_BASE_URL}/oplap_${entry.opNum}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller ? controller.signal : undefined
+      });
+      if (!res || !res.ok) {
+        const errBody = res ? await res.text().catch(() => '') : '';
+        throw new Error(`HTTP ${res ? res.status : 'Network'}${errBody ? ` — ${errBody.slice(0, 90)}` : ''}`);
+      }
+      saveCachedFirestoreMaster(entry.key, entry.data);
+    }
+
+    if (timer) clearTimeout(timer);
+    saveMasterSyncMeta(new Date());
+    masterSyncStatus = 'synced';
+    showToast('Master parameter berhasil di-push ke Firestore', 'success', 3800);
+  } catch (err) {
+    if (timer) clearTimeout(timer);
+    const msg = err && err.name === 'AbortError'
+      ? 'Koneksi timeout saat menghubungi Firestore.'
+      : (err && err.message ? err.message : 'Kesalahan jaringan');
+    showToast(`Gagal push ke Firestore: ${msg}`, 'error', 4800);
+  } finally {
+    isPushingMaster = false;
+    refreshMasterSyncBadgeUI();
+  }
+}
+
 async function openVersionCheckModal() {
   triggerHaptic(10);
   if (activeModalResolver) {
@@ -694,9 +1057,6 @@ async function openVersionCheckModal() {
     } catch (_) {}
   }
 
-  const swStatus = getServiceWorkerStatusSummary(activeReg);
-  const isOnline = navigator.onLine;
-
   bodyEl.innerHTML = '';
 
   const metaCard = document.createElement('div');
@@ -717,10 +1077,70 @@ async function openVersionCheckModal() {
   };
 
   metaCard.appendChild(makeMetaRow('Versi Terpasang', `v${APP_VERSION}`, 'emerald').row);
-  metaCard.appendChild(makeMetaRow('Status Koneksi', isOnline ? 'Online' : 'Offline', isOnline ? 'emerald' : 'amber').row);
-  const swRowObj = makeMetaRow('Service Worker', swStatus.label, swStatus.tone);
-  metaCard.appendChild(swRowObj.row);
+
+  // Database Master row with sync status on left & compact Push pill button on right
+  const dbRow = document.createElement('div');
+  dbRow.className = 'version-meta-row';
+
+  const dbLeft = document.createElement('div');
+  dbLeft.className = 'version-meta-sync-left';
+  const dbLabel = document.createElement('span');
+  dbLabel.className = 'version-meta-label';
+  dbLabel.textContent = 'Database Master';
+  const dbStatusPill = document.createElement('span');
+  dbStatusPill.className = 'version-sync-pill amber';
+  dbLeft.appendChild(dbLabel);
+  dbLeft.appendChild(dbStatusPill);
+
+  const pushBtn = document.createElement('button');
+  pushBtn.type = 'button';
+  pushBtn.id = 'masterPushBtn';
+  pushBtn.className = 'btn-push-pill';
+  pushBtn.title = 'Kirim master parameter ke Firestore';
+  pushBtn.appendChild(createSvgIcon('cloudUpload', 15));
+  const pushLabel = document.createElement('span');
+  pushLabel.textContent = 'Push';
+  pushBtn.appendChild(pushLabel);
+  pushBtn.addEventListener('click', handlePushMasterToFirestore);
+
+  dbRow.appendChild(dbLeft);
+  dbRow.appendChild(pushBtn);
+  metaCard.appendChild(dbRow);
+
+  const dbSyncTimeRow = document.createElement('div');
+  dbSyncTimeRow.id = 'masterSyncTimeText';
+  dbSyncTimeRow.className = 'version-meta-sync-time muted';
+  metaCard.appendChild(dbSyncTimeRow);
+
   bodyEl.appendChild(metaCard);
+
+  const syncMasterRowUI = () => {
+    if (isPushingMaster) {
+      dbStatusPill.textContent = 'Mengirim...';
+      dbStatusPill.className = 'version-sync-pill sky';
+      pushBtn.disabled = true;
+    } else if (masterSyncStatus === 'synced') {
+      dbStatusPill.textContent = 'Tersinkron';
+      dbStatusPill.className = 'version-sync-pill emerald';
+      pushBtn.disabled = false;
+    } else {
+      dbStatusPill.textContent = 'Lokal';
+      dbStatusPill.className = 'version-sync-pill amber';
+      pushBtn.disabled = false;
+    }
+
+    const syncMeta = getMasterSyncMeta();
+    const formattedTime = syncMeta ? (syncMeta.formatted || formatMasterSyncTimestamp(syncMeta.syncedAt)) : '';
+    if (formattedTime) {
+      dbSyncTimeRow.textContent = `Disinkronkan ${formattedTime}`;
+      dbSyncTimeRow.className = 'version-meta-sync-time';
+    } else {
+      dbSyncTimeRow.textContent = 'Belum pernah disinkronkan ke cloud';
+      dbSyncTimeRow.className = 'version-meta-sync-time muted';
+    }
+  };
+  syncMasterRowUI();
+  activeModalSyncUpdater = syncMasterRowUI;
 
   const sectionLabel = document.createElement('div');
   sectionLabel.className = 'version-section-label';
@@ -794,6 +1214,7 @@ async function openVersionCheckModal() {
 
   const cleanupVersionCheck = () => {
     isDisposed = true;
+    activeModalSyncUpdater = null;
     manualUpdateState = null;
     if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
     if (updateGraceId) { clearTimeout(updateGraceId); updateGraceId = null; }
@@ -837,8 +1258,6 @@ async function openVersionCheckModal() {
         performCleanReload();
       }
     };
-    swRowObj.val.textContent = 'Menerapkan Update...';
-    swRowObj.val.className = 'version-meta-val sky';
     worker.postMessage({ type: 'SKIP_WAITING' });
     reloadFallbackId = setTimeout(() => {
       performCleanReload();
@@ -853,8 +1272,6 @@ async function openVersionCheckModal() {
     watchedWorker = worker;
     setCheckBtnState(true, 'Memperbarui...');
     setBanner('info', 'loader', 'Pembaruan ditemukan, mengunduh aset terbaru...', true);
-    swRowObj.val.textContent = 'Mengunduh Update...';
-    swRowObj.val.className = 'version-meta-val sky';
 
     watchedWorkerHandler = () => {
       if (isDisposed) return;
@@ -967,15 +1384,11 @@ async function openVersionCheckModal() {
         if (remoteVer && compareSemver(remoteVer, APP_VERSION) > 0) {
           pendingRemoteVersion = remoteVer;
           setVersionNotifDot(true, remoteVer);
-          swRowObj.val.textContent = `Versi Baru v${remoteVer}`;
-          swRowObj.val.className = 'version-meta-val sky';
           performCleanReload();
           return;
         }
         pendingRemoteVersion = null;
         setVersionNotifDot(false);
-        swRowObj.val.textContent = 'Aktif & Mutakhir';
-        swRowObj.val.className = 'version-meta-val emerald';
         finishWithResult('success', 'checkCircle', `Aplikasi sudah menggunakan versi terbaru (v${APP_VERSION}).`);
         showToast(`Aplikasi sudah versi terbaru (v${APP_VERSION})`, 'success');
       }, 280);
@@ -1165,12 +1578,14 @@ function showModal({
 
 /* ================= DATE, STORAGE & STATUS HELPERS ================= */
 
-function getLocalDateTag() {
+function getLocalDateTimeFileTag() {
   const now = new Date();
   const yyyy = now.getFullYear();
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const dd = String(now.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mi = String(now.getMinutes()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}_${hh}-${mi}`;
 }
 
 function getLocalDateTimeShort(dateObj = new Date()) {
@@ -1282,8 +1697,14 @@ function isTextParameter(item) {
   return Boolean(item && String(item.type || '').trim().toLowerCase() === 'text');
 }
 
+function isEmptyCellValue(val) {
+  if (val === null || val === undefined) return true;
+  const trimmed = String(val).trim();
+  return trimmed === '' || trimmed === '-';
+}
+
 function isCellValueValid(val, item) {
-  if (val === '') return true;
+  if (isEmptyCellValue(val)) return true;
   const choiceOpts = getChoiceOptions(item);
   if (choiceOpts) {
     return choiceOpts.includes(val);
@@ -1297,10 +1718,12 @@ function isCellValueValid(val, item) {
 function normalizeCellValue(val, item, strictSanitize = false) {
   if (val === null || val === undefined) return '';
   if (item && getChoiceOptions(item)) {
-    return normalizeDecimal(val).trim().toLowerCase();
+    const normalized = normalizeDecimal(val).trim().toLowerCase();
+    return normalized === '-' ? '' : normalized;
   }
   if (item && isTextParameter(item)) {
-    return String(val).trim();
+    const trimmed = String(val).trim();
+    return trimmed === '-' ? '' : trimmed;
   }
   const str = normalizeDecimal(val);
   if (strictSanitize) {
@@ -1311,7 +1734,7 @@ function normalizeCellValue(val, item, strictSanitize = false) {
 
 function persistDraftNow() {
   try {
-    const hasData = Object.values(currentValues).some(v => v !== '') || Object.values(currentChecked).some(Boolean);
+    const hasData = Object.values(currentValues).some(v => !isEmptyCellValue(v)) || Object.values(currentChecked).some(Boolean);
     if (!hasData && !importedTimingProfile && !currentBadgeText) {
       localStorage.removeItem(STORAGE_PREFIX + currentOperatorKey);
       updateDraftSavedIndicator(false);
@@ -1378,8 +1801,7 @@ function updateFilledStats() {
   const total = currentParameters.length;
   let filled = 0;
   currentParameters.forEach(p => {
-    const v = currentValues[p.id];
-    if (v !== undefined && v !== null && v.toString().trim() !== '') {
+    if (!isEmptyCellValue(currentValues[p.id])) {
       filled++;
     }
   });
@@ -1430,12 +1852,17 @@ async function loadParameter(operatorKey) {
   if (vCont) vCont.classList.add('table-fade-switching');
 
   try {
-    const response = await fetch(`./data/${operatorKey}.json`);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+    let loadedParams = getCachedFirestoreMaster(operatorKey);
+    if (!loadedParams) {
+      const response = await fetch(`./data/${operatorKey}.json`, { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const rawJson = await response.json();
+      loadedParams = normalizeMasterParameters(rawJson) || [];
     }
-    const loadedParams = await response.json();
     if (reqId !== loadRequestId) return;
+    updateOperatorOptionLabelCount(operatorKey, loadedParams.length);
     currentParameters = loadedParams.map((item) => ({
       ...item,
       _searchText: `${item.index} ${item.equipment} ${item.tag} ${item.label}`.toLowerCase()
@@ -1500,7 +1927,10 @@ async function loadParameter(operatorKey) {
 
 function createCellControl(item, idx) {
   const choiceOpts = getChoiceOptions(item);
-  const currentVal = currentValues[item.id] !== undefined ? currentValues[item.id] : '';
+  const rawStoredVal = currentValues[item.id] !== undefined ? currentValues[item.id] : '';
+  const currentVal = choiceOpts
+    ? (isEmptyCellValue(rawStoredVal) ? '' : normalizeCellValue(rawStoredVal, item, false))
+    : rawStoredVal;
 
   if (choiceOpts) {
     const select = document.createElement('select');
@@ -1512,7 +1942,7 @@ function createCellControl(item, idx) {
 
     const emptyOpt = document.createElement('option');
     emptyOpt.value = '';
-    emptyOpt.textContent = '—';
+    emptyOpt.textContent = '-';
     select.appendChild(emptyOpt);
 
     choiceOpts.forEach(optVal => {
@@ -1522,7 +1952,7 @@ function createCellControl(item, idx) {
       select.appendChild(opt);
     });
 
-    if (currentVal !== '' && !choiceOpts.includes(currentVal)) {
+    if (!isEmptyCellValue(currentVal) && !choiceOpts.includes(currentVal)) {
       const customOpt = document.createElement('option');
       customOpt.value = currentVal;
       customOpt.textContent = `${currentVal} (!)`;
@@ -1531,13 +1961,14 @@ function createCellControl(item, idx) {
     }
 
     select.value = currentVal;
-    if (currentVal === '') select.classList.add('cell-empty');
+    if (isEmptyCellValue(currentVal)) select.classList.add('cell-empty');
 
     select.addEventListener('change', () => {
       const val = normalizeCellValue(select.value, item, false);
       currentValues[item.id] = val;
-      select.classList.toggle('cell-empty', val === '');
-      select.classList.toggle('cell-warning', val !== '' && !choiceOpts.includes(val));
+      currentChecked[item.id] = false;
+      select.classList.toggle('cell-empty', isEmptyCellValue(val));
+      select.classList.toggle('cell-warning', !isEmptyCellValue(val) && !choiceOpts.includes(val));
       updateFilledStats();
       saveDraftToStorage();
     });
@@ -1569,7 +2000,7 @@ function createCellControl(item, idx) {
   input.placeholder = '...';
   input.value = currentVal;
 
-  if (currentVal === '') {
+  if (isEmptyCellValue(currentVal)) {
     input.classList.add('cell-empty');
   } else if (!isFreeText && !isValidNumericValue(currentVal)) {
     input.classList.add('cell-warning');
@@ -1578,8 +2009,10 @@ function createCellControl(item, idx) {
   input.addEventListener('input', () => {
     const raw = input.value;
     if (isFreeText) {
-      currentValues[item.id] = raw;
-      input.classList.toggle('cell-empty', raw.trim() === '');
+      const storedVal = raw.trim() === '-' ? '' : raw;
+      currentValues[item.id] = storedVal;
+      currentChecked[item.id] = false;
+      input.classList.toggle('cell-empty', isEmptyCellValue(raw));
       input.classList.remove('cell-warning');
       updateFilledStats();
       saveDraftToStorage(false);
@@ -1601,7 +2034,8 @@ function createCellControl(item, idx) {
     }
 
     currentValues[item.id] = sanitized;
-    input.classList.toggle('cell-empty', sanitized === '');
+    currentChecked[item.id] = false;
+    input.classList.toggle('cell-empty', isEmptyCellValue(sanitized));
     const tempValid = sanitized === '' || sanitized === '-' || sanitized === '.' || sanitized === '-.' || /^-?(?:\d+\.?\d*|\.\d+)$/.test(sanitized);
     input.classList.toggle('cell-warning', !tempValid);
     updateFilledStats();
@@ -1611,16 +2045,24 @@ function createCellControl(item, idx) {
   input.addEventListener('blur', () => {
     if (isFreeText) {
       const trimmed = input.value.trim();
-      if (input.value !== trimmed) input.value = trimmed;
-      currentValues[item.id] = trimmed;
-      input.classList.toggle('cell-empty', trimmed === '');
+      const normalized = trimmed === '-' ? '' : trimmed;
+      if (input.value !== normalized) input.value = normalized;
+      currentValues[item.id] = normalized;
+      input.classList.toggle('cell-empty', isEmptyCellValue(normalized));
       input.classList.remove('cell-warning');
       updateFilledStats();
       flushPendingDraftSave();
       return;
     }
-    const val = currentValues[item.id] || '';
-    input.classList.toggle('cell-warning', val !== '' && !isValidNumericValue(val));
+    let val = currentValues[item.id] || '';
+    if (val.trim() === '-') {
+      val = '';
+      currentValues[item.id] = '';
+      input.value = '';
+      updateFilledStats();
+    }
+    input.classList.toggle('cell-empty', isEmptyCellValue(val));
+    input.classList.toggle('cell-warning', !isEmptyCellValue(val) && !isValidNumericValue(val));
     flushPendingDraftSave();
   });
 
@@ -1856,8 +2298,7 @@ function jumpToNextEmpty() {
   for (let offset = 0; offset < total; offset++) {
     const idx = (startIdx + offset) % total;
     const p = currentParameters[idx];
-    const val = (currentValues[p.id] || '').toString().trim();
-    if (val === '') {
+    if (isEmptyCellValue(currentValues[p.id])) {
       focusInput(idx);
       return;
     }
@@ -2064,7 +2505,7 @@ function extractTimingProfile(events, settings = null) {
 function getFilledCellCount() {
   let count = 0;
   Object.values(currentValues).forEach((v) => {
-    if (v !== undefined && v !== null && v.toString().trim() !== '') count++;
+    if (!isEmptyCellValue(v)) count++;
   });
   return count;
 }
@@ -2161,7 +2602,7 @@ async function importData(event) {
             ],
             actions: [
               { label: `Pindah ke ${targetShort}`, icon: 'refresh', value: 'switch', className: 'btn btn-primary' },
-              { label: `Tetap Isi di ${currentShort}`, icon: 'download', value: 'stay', className: 'btn btn-share' },
+              { label: `Tetap Isi di ${currentShort}`, icon: 'download', value: 'stay', className: 'btn btn-secondary' },
               { label: 'Batal', icon: 'x', value: 'cancel', className: 'btn btn-ghost' }
             ],
             dismissValue: 'cancel'
@@ -2235,9 +2676,10 @@ function applyDilocAutomatorPreset(cells, fileName) {
     const paramObj = currentParameters[rawIdx];
     const rawVal = (cell.value !== undefined && cell.value !== null) ? String(cell.value) : '';
     const cleanVal = normalizeCellValue(rawVal, paramObj, false);
-    currentValues[paramObj.id] = cleanVal;
-    currentChecked[paramObj.id] = Boolean(cell.checked);
-    if (cleanVal !== '') populatedCount++;
+    const isEmpty = isEmptyCellValue(cleanVal);
+    currentValues[paramObj.id] = isEmpty ? '' : cleanVal;
+    currentChecked[paramObj.id] = isEmpty ? false : Boolean(cell.checked);
+    if (!isEmpty) populatedCount++;
   });
 
   if (fileName) setImportedFileBadge(fileName, false);
@@ -2258,8 +2700,9 @@ function applyMappedValues(rawValues, fileName, timingProfile = null) {
     if (idx < currentParameters.length) {
       const paramObj = currentParameters[idx];
       const cleanVal = normalizeCellValue(val, paramObj, false);
-      currentValues[paramObj.id] = cleanVal;
-      if (cleanVal !== '') populatedCount++;
+      const isEmpty = isEmptyCellValue(cleanVal);
+      currentValues[paramObj.id] = isEmpty ? '' : cleanVal;
+      if (!isEmpty) populatedCount++;
     }
   });
 
@@ -2275,7 +2718,7 @@ async function showImportResultModal(fileName, totalRead, populatedCount) {
   const invalidItems = [];
   currentParameters.forEach((p) => {
     const val = (currentValues[p.id] || '').toString().trim();
-    if (val !== '' && !isCellValueValid(val, p)) {
+    if (!isEmptyCellValue(val) && !isCellValueValid(val, p)) {
       invalidItems.push(`#${p.index} ${p.tag} (${val})`);
     }
   });
@@ -2387,7 +2830,7 @@ function parsePmrMacroEventsAccurate(events) {
 
 /* ================= CONSOLIDATED EXPORT VALIDATION & BUILD ================= */
 
-async function validateBeforeExport(actionType = 'export') {
+async function validateBeforeExport() {
   flushPendingDraftSave();
   const total = currentParameters.length;
   if (total === 0) {
@@ -2401,7 +2844,7 @@ async function validateBeforeExport(actionType = 'export') {
 
   currentParameters.forEach((p, idx) => {
     const val = (currentValues[p.id] || '').toString().trim();
-    if (val !== '') {
+    if (!isEmptyCellValue(val)) {
       filledCount++;
       lastFilledIdx = idx;
       if (!isCellValueValid(val, p)) {
@@ -2453,13 +2896,13 @@ async function validateBeforeExport(actionType = 'export') {
   if (issues.length > 0) {
     const choice = await showModal({
       type: gapsBeforeLast.length > 0 || invalidParams.length > 0 ? 'danger' : 'warning',
-      title: actionType === 'share' ? 'Periksa Sebelum Share' : 'Periksa Sebelum Export',
+      title: 'Periksa Sebelum Export',
       paragraphs: [`Masih ada ${emptyParams.length} sel kosong atau catatan validasi pada logsheet:`],
       bullets: issues,
       bulletStyle: 'warning',
       actions: [
         { label: 'Cek Sel Kosong', icon: 'search', value: 'fix', className: 'btn btn-primary' },
-        { label: actionType === 'share' ? 'Tetap Share' : 'Tetap Export', value: 'proceed', className: 'btn btn-ghost' }
+        { label: 'Tetap Export', value: 'proceed', className: 'btn btn-ghost' }
       ],
       dismissValue: 'fix'
     });
@@ -2497,10 +2940,14 @@ function getActivePlaybackTiming() {
 function buildExportArtifact() {
   const formatSelect = document.getElementById('exportFormat');
   const format = formatSelect ? formatSelect.value : 'diloc';
-  const dateTag = getLocalDateTag();
+  const dateTimeTag = getLocalDateTimeFileTag();
   const opNumber = parseInt(currentOperatorKey.replace(/\D+/g, ''), 10) || 1;
 
   if (format === 'diloc') {
+    const expectedCount = EXPECTED_OPERATOR_COUNTS[currentOperatorKey];
+    if (expectedCount && currentParameters.length !== expectedCount) {
+      throw new Error(`Jumlah parameter Op Lap ${opNumber} harus ${expectedCount} item (terbaca ${currentParameters.length})`);
+    }
     const presetData = {
       format: 'diloc-automator-preset',
       version: '2.1.2',
@@ -2508,7 +2955,7 @@ function buildExportArtifact() {
       exportedAt: new Date().toISOString(),
       cells: currentParameters.map((p, idx) => {
         const rawVal = currentValues[p.id];
-        const valStr = (rawVal !== undefined && rawVal !== null) ? String(rawVal).trim() : '';
+        const valStr = isEmptyCellValue(rawVal) ? '' : String(rawVal).trim();
         const cellType = isTextParameter(p) ? 'text' : 'number';
         return {
           index: idx,
@@ -2516,14 +2963,14 @@ function buildExportArtifact() {
           equipment: p.equipment || '',
           type: cellType,
           value: valStr,
-          checked: Boolean(currentChecked[p.id])
+          checked: valStr === '' ? false : Boolean(currentChecked[p.id])
         };
       })
     };
 
     return {
       content: JSON.stringify(presetData, null, 2),
-      fileName: `DILOC_OpLap${opNumber}_Preset_${dateTag}.json`,
+      fileName: `DILOC_OpLap${opNumber}_${dateTimeTag}.json`,
       mimeType: 'application/json'
     };
   }
@@ -2531,15 +2978,14 @@ function buildExportArtifact() {
   const timing = getActivePlaybackTiming();
   let lastFilledIdx = -1;
   currentParameters.forEach((p, idx) => {
-    const val = (currentValues[p.id] || '').toString().trim();
-    if (val !== '') lastFilledIdx = idx;
+    if (!isEmptyCellValue(currentValues[p.id])) lastFilledIdx = idx;
   });
 
   const events = [];
 
   for (let idx = 0; idx <= lastFilledIdx; idx++) {
     const p = currentParameters[idx];
-    const val = (currentValues[p.id] || '').toString().trim();
+    const val = isEmptyCellValue(currentValues[p.id]) ? '' : String(currentValues[p.id]).trim();
 
     for (const char of val) {
       events.push({ type: 'keyboardEvent', key: char, pressed: true, timestamp: timing.charDelay });
@@ -2568,59 +3014,20 @@ function buildExportArtifact() {
   // Use application/octet-stream for .pmr so iOS Safari saves exact .pmr extension without renaming to .pmr.json
   return {
     content: JSON.stringify(macroData, null, 2),
-    fileName: `Logsheet_${currentOperatorKey}_${dateTag}.pmr`,
+    fileName: `DILOC_OpLap${opNumber}_${dateTimeTag}.pmr`,
     mimeType: 'application/octet-stream'
   };
 }
 
 async function handleExport() {
   triggerHaptic(12);
-  if (!(await validateBeforeExport('export'))) return;
+  if (!(await validateBeforeExport())) return;
   try {
     const artifact = buildExportArtifact();
     downloadBlob(artifact.content, artifact.fileName, artifact.mimeType);
     showToast(`Berhasil export ${artifact.fileName}`, 'success');
   } catch (err) {
     showToast(`Gagal export file: ${err && err.message ? err.message : 'kesalahan sistem'}`, 'error', 4200);
-  }
-}
-
-async function handleShare() {
-  triggerHaptic(12);
-  if (!(await validateBeforeExport('share'))) return;
-  let artifact;
-  try {
-    artifact = buildExportArtifact();
-  } catch (err) {
-    showToast(`Gagal menyiapkan file share: ${err && err.message ? err.message : 'kesalahan sistem'}`, 'error', 4200);
-    return;
-  }
-
-  try {
-    let shareFile = new File([artifact.content], artifact.fileName, { type: artifact.mimeType });
-    if (!(navigator.canShare && navigator.canShare({ files: [shareFile] }))) {
-      shareFile = new File([artifact.content], artifact.fileName, { type: 'text/plain' });
-    }
-
-    if (navigator.canShare && navigator.canShare({ files: [shareFile] })) {
-      await navigator.share({
-        files: [shareFile],
-        title: artifact.fileName,
-        text: `Logsheet DILOC ${currentOperatorKey.toUpperCase()}`
-      });
-      showToast(`Berhasil membagikan ${artifact.fileName}`, 'success');
-      return;
-    }
-  } catch (err) {
-    if (err && err.name === 'AbortError') return;
-    console.warn('Web Share API gagal, fallback ke download:', err.message);
-  }
-
-  try {
-    downloadBlob(artifact.content, artifact.fileName, artifact.mimeType);
-    showToast(`Share langsung tidak tersedia; file diunduh (${artifact.fileName})`, 'success', 3800);
-  } catch (err) {
-    showToast(`Gagal mengunduh file: ${err && err.message ? err.message : 'kesalahan sistem'}`, 'error', 4200);
   }
 }
 

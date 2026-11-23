@@ -1,5 +1,29 @@
 # Changelog — DILOC Editor
 
+## [v1.12.2] - 2026-11-23 (Bug Fix / Patch)
+- **Normalisasi Dropdown Default `"-"` Sebagai Sel Kosong**: Menampilkan opsi default dropdown (`ON/OFF`, `A/B`, `Huruf`) sebagai `"-"` di antarmuka sambil memperlakukan `"-"`, string kosong `""`, dan spasi sebagai sel kosong di balik layar—tidak ikut terhitung pada `Terisi: X / N Cell`, tetap masuk navigasi `Sel Kosong (X)` & validasi sebelum export, dikonversi bersih menjadi `""` (`"checked": false`) saat export `.json` / `.pmr`, serta otomatis kembali ke default `"-"` ketika mengimpor sel bernilai `""` atau `"-"`.
+- **Format Stempel Waktu Lokal Sinkronisasi (`Disinkronkan DD/MM/YY HH:mm`)**: Memperbarui tampilan waktu sinkronisasi Firestore pada bagian **Database Master** di Modal Info Versi menjadi format jam lokal 24-jam perangkat (`DD/MM/YY HH:mm`), menyimpan metadata waktu lokal/ISO pada setiap `Auto-Pull` atau `Push` sukses, serta memastikan parser aman terhadap cache lama maupun nilai rusak tanpa menghasilkan `Invalid Date` atau `NaN`.
+- **Penanda `schemaVersion` pada Dokumen Master Firestore**: Menyertakan field `schemaVersion: "1.12.2"` saat melakukan `Push` ke `oplap_1`, `oplap_2`, dan `oplap_3`, serta memvalidasi keberadaan dan kesesuaian `schemaVersion` (`>= 1.12.2`) beserta jumlah tepat `167 / 51 / 45` item pada `Auto-Pull` agar dokumen lama di cloud tidak menimpa database master lokal yang bersih.
+- **Pembaruan Versi & Cache PWA**: Menaikkan versi ke `v1.12.2` di UI, `manifest.json`, `package.json`, `version.json`, `README.md`, `CHANGELOG.md`, dan cache Service Worker `diloc-editor-v1.12.2`.
+
+---
+
+## [v1.12.1] - 2026-11-23 (Bug Fix / Patch)
+- **Label Konsisten & Perapihan Dropdown `Format File` di Layar Sempit**: Menampilkan label **Pilih Operator** dan **Format File** secara konsisten di seluruh ukuran layar (`< 768px` maupun `>= 768px`) dengan perataan bawah tombol `Import` dan `Export` (`106px`) yang sejajar rapi, serta menyetel spasi ikon, panah dropdown, dan kerapatan huruf agar teks `DILOC Automator (.json)` tampil utuh di HP sempit sambil mempertahankan ukuran font kontrol `>= 16px` anti-zoom iOS Safari.
+- **Stempel Waktu Sinkronisasi Master Firestore (`Disinkronkan DD/MM HH:mm`)**: Menyimpan waktu sinkronisasi terakhir ke `localStorage` setiap kali `Auto-Pull` atau `Push` ke koleksi `diloc_master_parameter` (`oplap_1`, `oplap_2`, `oplap_3`) berhasil dan menampilkannya di bagian **Database Master** pada Modal Info Versi (atau status jelas bila belum pernah tersinkronisasi).
+- **Pembersihan Database Master Lokal & Penguncian Jumlah Op 3 (`45` Item)**: Memperbarui dataset master bawaan untuk **Op Lap 1 (`167` item, indeks `0–166`)**, **Op Lap 2 (`51` item, indeks `0–50`)**, dan **Op Lap 3 (`45` item, indeks `0–44`)** sesuai struktur bersih (`index`, `tag`, `equipment`, `type`, `unit` tanpa `null`), mengunci validasi sinkronisasi & ekspor JSON tepat `167 / 51 / 45` item, serta menyegarkan cache master lokal saat upgrade versi.
+- **Pembaruan Versi & Cache PWA**: Menaikkan versi ke `v1.12.1` di UI, `manifest.json`, `package.json`, `version.json`, `README.md`, `CHANGELOG.md`, dan cache Service Worker `diloc-editor-v1.12.1`.
+
+---
+
+## [v1.12.0] - 2026-11-23 (Minor Update)
+- **Integrasi Firestore REST API (`urea1b-project-database`)**: Menambahkan Auto-Pull koleksi `diloc_master_parameter` (`oplap_1`, `oplap_2`, `oplap_3`) saat online lengkap dengan cache `localStorage` dan fallback database master lokal, serta baris **Database Master** + tombol pill **Push** (`PATCH` Firestore REST API dengan dialog konfirmasi dan toast 3 tahap) di Modal Info Versi.
+- **Pembersihan Fitur Share & Penataan Ulang Tata Letak**: Menghapus total tombol dan fungsi **Share**, menata Control Card menjadi 2 baris rata kanan di HP portrait (`Import` & `Export` sejajar vertikal) dan 1 baris di layar lebar, merapikan Sticky Toolbar (status + pencarian penuh anti-zoom iOS), memindahkan tombol **Sel Kosong** dan **Reset** ke strip aksi atas card tabel, serta memperbesar judul header kolom tabel rata tengah.
+- **Format Nama File & Aturan Data Ekspor**: Mengubah format nama file ekspor menjadi `DILOC_OpLap{op}_YYYY-MM-DD_HH-mm.json` / `.pmr`, memastikan seluruh indeks parameter tercetak penuh (sel kosong `"value": ""`, `"checked": false`, input `"0"` valid), dan mempertahankan status `checked` bawaan hasil import sambil menetapkan default `"checked": false` pada input baru pengguna.
+- **Pembaruan Versi & Cache PWA**: Menaikkan versi ke `v1.12.0` di UI, `manifest.json`, `package.json`, `version.json`, `README.md`, `CHANGELOG.md`, dan cache Service Worker `diloc-editor-v1.12.0`.
+
+---
+
 ## [v1.11.1] - 2026-11-21 (Bug Fix / Patch)
 - **Perbaikan Tata Letak Control Card 1 Baris Desktop (`>= 1024px`)**: Mengubah `.controls-bar` pada `@media (min-width: 1024px)` menjadi Flexbox horizontal `nowrap` (`align-items: center; gap: 10px;`) dan meratakan pembungkus `.export-group` dengan `display: contents;` sehingga ke-5 kontrol tampil dalam 1 baris sejajar sempurna dari kiri ke kanan (`Pilih Operator` `190px`, `Cari Tag / Equipment` `flex: 1 1 auto; min-width: 180px`, `Import` `auto`, `Format File` `238px`, dan `Export` `auto`).
 - **Kesejajaran Tinggi `42px` & Urutan Cascade CSS**: Menyembunyikan `<label>` kontrol di desktop `>= 1024px`, menyamakan tinggi `height: 42px; box-sizing: border-box;` pada seluruh 5 kontrol tanpa memotong teks `DILOC Automator (.json)`, serta mempertahankan aturan `@media (min-width: 1024px)` di bagian paling bawah stylesheet agar susunan 3 baris di layar mobile/tablet (`< 1024px`) tetap utuh.

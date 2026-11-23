@@ -31,8 +31,6 @@
       --bg-input: #334155;
       --accent: #10b981;
       --accent-hover: #059669;
-      --share-accent: #0ea5e9;
-      --share-hover: #0284c7;
       --warning: #f59e0b;
       --danger: #ef4444;
       --text-main: #f8fafc;
@@ -364,13 +362,14 @@
     }
 
     .controls-bar {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: end;
-      gap: 12px;
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      align-items: flex-end;
+      gap: 10px;
       margin-bottom: 12px;
       background: var(--bg-card);
-      padding: 14px 16px;
+      padding: 12px 16px 14px;
       border-radius: 12px;
       border: 1px solid rgba(71, 85, 105, 0.58);
       box-shadow: 0 8px 24px rgba(2, 6, 23, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -383,34 +382,47 @@
       min-width: 0;
     }
 
+    .controls-bar .field-label {
+      display: block;
+      white-space: nowrap;
+    }
+
     .operator-group {
-      grid-column: 1;
-      order: 1;
+      flex: 1 1 180px;
+      min-width: 150px;
+      box-sizing: border-box;
     }
 
     .import-group {
-      grid-column: 2;
-      order: 2;
-      height: 44px;
+      flex: 0 0 auto;
+      width: 106px;
+      height: 42px;
+      margin: 0;
+      box-sizing: border-box;
     }
 
     .import-group .btn {
       width: 100%;
-      height: 44px;
-      min-width: 124px;
-      padding: 0 18px;
+      height: 42px;
+      min-width: 106px;
+      padding: 0 14px;
+      box-sizing: border-box;
     }
 
-    .control-group.search-group {
-      grid-column: 1 / -1;
-      order: 3;
-      width: 100%;
+    .format-group {
+      flex: 1.35 1 245px;
+      min-width: 225px;
+      box-sizing: border-box;
     }
 
-    .export-group {
-      grid-column: 1 / -1;
-      order: 4;
-      width: 100%;
+    .export-btn {
+      flex: 0 0 auto;
+      width: 106px;
+      height: 42px;
+      min-width: 106px;
+      margin: 0;
+      padding: 0 14px;
+      box-sizing: border-box;
     }
 
     .control-icon-wrap {
@@ -447,13 +459,14 @@
       border: 1px solid var(--border-color);
       color: var(--text-main);
       padding: 0 12px;
-      height: 44px;
+      height: 42px;
       border-radius: 8px;
       font-size: 0.88rem;
       font-weight: 500;
       outline: none;
       transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
       width: 100%;
+      box-sizing: border-box;
     }
 
     select {
@@ -540,12 +553,6 @@
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
     }
 
-    .btn-share {
-      background-color: rgba(14, 165, 233, 0.15);
-      border: 1px solid rgba(14, 165, 233, 0.44);
-      color: #38bdf8;
-    }
-
     .btn-secondary {
       background-color: #475569;
       border-color: rgba(148, 163, 184, 0.28);
@@ -569,11 +576,6 @@
       .btn-primary:hover {
         background-color: var(--accent-hover);
         box-shadow: 0 4px 14px rgba(16, 185, 129, 0.28);
-      }
-
-      .btn-share:hover {
-        background-color: rgba(14, 165, 233, 0.25);
-        border-color: var(--share-accent);
       }
 
       .btn-secondary:hover {
@@ -610,46 +612,20 @@
       height: 100%;
     }
 
-    .export-wrapper {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(136px, 24%);
-      align-items: stretch;
-      background: var(--bg-input);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      overflow: hidden;
-      height: 44px;
-      width: 100%;
-    }
-
     .export-select-wrap {
-      height: 100%;
+      height: 42px;
       min-width: 0;
     }
 
-    .export-wrapper select {
-      background-color: transparent;
-      border: none;
-      color: var(--text-main);
-      padding: 0 28px 0 36px;
-      height: 100%;
-      font-size: 0.88rem;
+    .export-select-wrap select {
       font-weight: 600;
-      width: 100%;
-      min-width: 0;
+      padding: 0 28px 0 36px;
       cursor: pointer;
     }
 
-    .export-wrapper select option {
+    .export-select-wrap select option {
       background-color: var(--bg-card);
       color: var(--text-main);
-    }
-
-    .export-wrapper .btn-primary {
-      border-radius: 0 7px 7px 0;
-      height: 100%;
-      width: 100%;
-      padding: 0 16px;
     }
 
     /* Sticky Quick Utility Toolbar */
@@ -658,10 +634,11 @@
       top: var(--ios-top-clearance);
       z-index: 20;
       display: flex;
-      flex-wrap: wrap;
+      flex-direction: row;
+      flex-wrap: nowrap;
       justify-content: space-between;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
       margin-bottom: 12px;
       padding: 8px 12px;
       background-color: rgba(15, 23, 42, 0.94);
@@ -672,33 +649,29 @@
       box-shadow: 0 6px 20px rgba(2, 6, 23, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
 
-    .quick-toolbar .btn {
-      height: 36px;
-      font-size: 0.83rem;
-      padding: 0 11px;
+    .toolbar-search-row {
+      order: 1;
+      flex: 1 1 auto;
+      min-width: 220px;
+    }
+
+    .toolbar-search-row .search-input-wrap {
+      width: 100%;
+    }
+
+    .toolbar-search-row input[type="text"] {
+      height: 38px;
+      padding: 0 34px 0 36px;
     }
 
     .toolbar-status-row {
-      display: none;
-      width: 100%;
-      justify-content: space-between;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: nowrap;
-    }
-
-    .toolbar-left {
+      order: 2;
+      flex: 0 0 auto;
       display: flex;
-      flex-wrap: wrap;
+      justify-content: flex-end;
+      align-items: center;
       gap: 8px;
-      align-items: center;
-    }
-
-    .toolbar-right {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
+      flex-wrap: nowrap;
       margin-left: auto;
     }
 
@@ -707,6 +680,7 @@
       color: #fbbf24;
       font-weight: 500;
       display: none;
+      white-space: nowrap;
     }
 
     /* Load Error Banner (if opened via file:// without server) */
@@ -733,16 +707,51 @@
       margin-top: 2px;
     }
 
+    /* MAIN TABLE CARD & TOP ACTION STRIP */
+    .table-card {
+      width: 100%;
+      background-color: var(--bg-card);
+      border: 1px solid rgba(71, 85, 105, 0.6);
+      border-radius: 12px;
+      box-shadow: 0 8px 26px rgba(2, 6, 23, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      margin-bottom: 18px;
+      overflow: hidden;
+    }
+
+    .table-action-strip {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background-color: rgba(15, 23, 42, 0.56);
+      border-bottom: 1px solid rgba(71, 85, 105, 0.52);
+    }
+
+    .table-action-empty {
+      width: 152px;
+      flex: 0 0 152px;
+      height: 36px;
+      padding: 0 10px;
+      font-size: 0.82rem;
+      box-sizing: border-box;
+    }
+
+    .table-action-reset {
+      width: 86px;
+      flex: 0 0 86px;
+      height: 36px;
+      padding: 0 10px;
+      font-size: 0.82rem;
+      box-sizing: border-box;
+    }
+
     /* HORIZONTAL EXCEL-LIKE GRID (DESKTOP AUTO) */
     .excel-container {
       width: 100%;
       overflow-x: auto;
       overflow-y: hidden;
       background-color: var(--bg-card);
-      border: 1px solid rgba(71, 85, 105, 0.6);
-      border-radius: 12px;
-      box-shadow: 0 8px 26px rgba(2, 6, 23, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.03);
-      margin-bottom: 18px;
       opacity: 1;
       transition: opacity 0.2s var(--ease-spring);
     }
@@ -794,10 +803,6 @@
     .vertical-container {
       width: 100%;
       background-color: var(--bg-card);
-      border: 1px solid rgba(71, 85, 105, 0.6);
-      border-radius: 12px;
-      box-shadow: 0 8px 26px rgba(2, 6, 23, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.03);
-      margin-bottom: 18px;
       overflow: hidden;
       opacity: 1;
       transition: opacity 0.2s var(--ease-spring);
@@ -817,10 +822,11 @@
       background-color: #0f172a;
       color: var(--accent);
       font-weight: 700;
-      font-size: 0.8rem;
-      padding: 10px 12px;
+      font-size: 14.5px;
+      padding: 11px 12px;
       border-bottom: 2px solid var(--accent);
-      text-align: left;
+      text-align: center;
+      white-space: nowrap;
     }
 
     .vertical-table thead th.col-val {
@@ -1173,6 +1179,90 @@
       color: #fca5a5;
     }
 
+    .version-meta-sync-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .version-meta-sync-time {
+      font-size: 0.74rem;
+      font-weight: 500;
+      color: #6ee7b7;
+      line-height: 1.3;
+    }
+
+    .version-meta-sync-time.muted {
+      color: var(--text-muted);
+    }
+
+    .version-sync-pill {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      line-height: 1.3;
+    }
+
+    .version-sync-pill.emerald {
+      background: rgba(16, 185, 129, 0.14);
+      border-color: rgba(16, 185, 129, 0.36);
+      color: #34d399;
+    }
+
+    .version-sync-pill.amber {
+      background: rgba(245, 158, 11, 0.14);
+      border-color: rgba(245, 158, 11, 0.36);
+      color: #fbbf24;
+    }
+
+    .version-sync-pill.sky {
+      background: rgba(14, 165, 233, 0.14);
+      border-color: rgba(14, 165, 233, 0.36);
+      color: #38bdf8;
+    }
+
+    .btn-push-pill {
+      height: 29px;
+      padding: 0 11px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.16);
+      border: 1px solid rgba(16, 185, 129, 0.48);
+      color: #34d399;
+      font-size: 0.76rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      flex-shrink: 0;
+      transition: background-color 0.18s var(--ease-spring), border-color 0.18s var(--ease-spring), transform 0.14s var(--ease-spring), opacity 0.18s ease;
+    }
+
+    .btn-push-pill:active {
+      transform: scale(0.96);
+    }
+
+    .btn-push-pill:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      .btn-push-pill:hover:not(:disabled) {
+        background: rgba(16, 185, 129, 0.28);
+        border-color: var(--accent);
+        color: #6ee7b7;
+      }
+    }
+
     .version-section-label {
       font-size: 0.76rem;
       font-weight: 700;
@@ -1337,13 +1427,13 @@
       gap: 8px;
     }
 
-    /* TOAST NOTIFICATION (3 VARIANTS, SMART REPLACE, TAP TO DISMISS) */
+    /* TOAST NOTIFICATION (VARIANTS, SMART REPLACE, TAP TO DISMISS) */
     .toast-region {
       position: fixed;
       top: calc(var(--ios-top-clearance) + 10px);
       left: 50%;
       transform: translateX(-50%);
-      z-index: 1100;
+      z-index: 1200;
       width: min(calc(100% - 24px), 420px);
       display: flex;
       justify-content: center;
@@ -1392,6 +1482,11 @@
       box-shadow: 0 14px 34px rgba(16, 185, 129, 0.14), 0 8px 22px rgba(2, 6, 23, 0.65);
     }
 
+    .app-toast.info {
+      border-color: rgba(14, 165, 233, 0.55);
+      box-shadow: 0 14px 34px rgba(14, 165, 233, 0.16), 0 8px 22px rgba(2, 6, 23, 0.65);
+    }
+
     .app-toast.warning {
       border-color: rgba(245, 158, 11, 0.55);
       box-shadow: 0 14px 34px rgba(245, 158, 11, 0.14), 0 8px 22px rgba(2, 6, 23, 0.65);
@@ -1416,6 +1511,12 @@
       background: rgba(16, 185, 129, 0.16);
       border: 1px solid rgba(16, 185, 129, 0.38);
       color: #34d399;
+    }
+
+    .app-toast.info .app-toast-icon {
+      background: rgba(14, 165, 233, 0.16);
+      border: 1px solid rgba(14, 165, 233, 0.4);
+      color: #38bdf8;
     }
 
     .app-toast.warning .app-toast-icon {
@@ -1594,24 +1695,25 @@
 
       .controls-bar {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-columns: minmax(0, 1fr) 106px;
         align-items: end;
-        padding: 12px;
-        gap: 10px;
+        padding: 10px;
+        gap: 10px 8px;
+      }
+
+      .controls-bar .field-label {
+        display: block;
       }
 
       .control-group {
         min-width: 0;
+        height: auto;
       }
 
       input[type="text"] {
         font-size: 16px;
         padding: 0 10px;
         height: 44px;
-      }
-
-      .search-input-wrap input {
-        padding: 0 34px 0 36px;
       }
 
       select {
@@ -1622,70 +1724,96 @@
 
       .operator-group {
         grid-column: 1;
-        order: 1;
+        grid-row: 1;
+        flex: none;
+        min-width: 0;
+        height: auto;
       }
 
       .import-group {
         grid-column: 2;
-        order: 2;
+        grid-row: 1;
+        width: 106px;
         height: 44px;
+        flex: none;
       }
 
       .import-group .btn {
-        width: 100%;
+        width: 106px;
         height: 44px;
-        min-width: 104px;
-        padding: 0 14px;
-      }
-
-      .control-group.search-group {
-        grid-column: 1 / -1;
-        order: 3;
-        width: 100%;
-      }
-
-      .export-group {
-        grid-column: 1 / -1;
-        order: 4;
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(110px, 34%);
-        width: 100%;
-        height: 44px;
-      }
-
-      .export-group select {
-        width: 100%;
-        height: 100%;
-        min-width: 0;
-        font-size: 16px;
-        padding: 0 26px 0 36px;
-      }
-
-      .export-group .btn-primary {
-        width: 100%;
-        height: 100%;
+        min-width: 106px;
         padding: 0 10px;
+      }
+
+      .format-group {
+        grid-column: 1;
+        grid-row: 2;
+        flex: none;
+        min-width: 0;
+        height: auto;
+      }
+
+      .format-group .export-select-wrap {
+        height: 44px;
+      }
+
+      .format-group .control-leading-icon {
+        left: 9px;
+      }
+
+      .format-group .control-leading-icon svg {
+        width: 15px;
+        height: 15px;
+      }
+
+      .format-group select {
+        font-size: 16px;
+        font-weight: 500;
+        letter-spacing: -0.025em;
+        padding: 0 22px 0 30px;
+        background-position: right 7px center;
+        background-size: 11px 11px;
+        height: 44px;
+        text-overflow: clip;
+      }
+
+      .export-btn {
+        grid-column: 2;
+        grid-row: 2;
+        width: 106px;
+        height: 44px;
+        min-width: 106px;
+        padding: 0 10px;
+        flex: none;
       }
 
       .quick-toolbar {
         top: var(--ios-top-clearance);
         background-color: rgba(15, 23, 42, 0.98);
+        flex-direction: column;
+        align-items: stretch;
         padding: 8px 10px;
         border-radius: 0 0 10px 10px;
         margin-left: calc(-1 * max(10px, env(safe-area-inset-left)));
         margin-right: calc(-1 * max(10px, env(safe-area-inset-right)));
         border-left: none;
         border-right: none;
-        gap: 7px;
+        gap: 8px;
       }
 
       .toolbar-status-row {
+        order: 1;
         display: flex;
         justify-content: space-between;
         align-items: center;
         width: 100%;
         gap: 6px;
         flex-wrap: nowrap;
+        margin-left: 0;
+      }
+
+      .toolbar-status-row .filter-info {
+        display: none !important;
       }
 
       .toolbar-status-row .filled-badge,
@@ -1698,27 +1826,16 @@
         text-overflow: ellipsis;
       }
 
-      .toolbar-left {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
+      .toolbar-search-row {
+        order: 2;
         width: 100%;
-        gap: 6px;
+        min-width: 0;
       }
 
-      .toolbar-left .btn {
-        width: 100%;
-        padding: 0 6px;
-        font-size: 0.81rem;
-      }
-
-      .toolbar-right {
-        width: 100%;
-        justify-content: center;
-        margin-left: 0;
-      }
-
-      .toolbar-right:not(:has(.filter-info[style*="display: inline"])) {
-        display: none;
+      .toolbar-search-row .search-input-wrap input {
+        font-size: 16px;
+        height: 40px;
+        padding: 0 34px 0 36px;
       }
 
       .vertical-table thead th.col-val {
@@ -1739,113 +1856,33 @@
       }
     }
 
-    /* Desktop >= 1024px: Single-Row Compact Control Card */
-    @media (min-width: 1024px) {
+    @media (max-width: 399px) {
+      body {
+        padding-right: max(8px, env(safe-area-inset-right, 0px));
+        padding-left: max(8px, env(safe-area-inset-left, 0px));
+      }
+
       .controls-bar {
-        display: flex;
-        flex-direction: row;
-        flex-wrap: nowrap;
-        align-items: center;
-        gap: 10px;
+        padding: 10px 9px;
+        gap: 10px 6px;
       }
 
-      .controls-bar .field-label {
-        display: none;
+      .format-group .control-leading-icon {
+        left: 8px;
       }
 
-      .operator-group {
-        order: 1;
-        flex: 0 0 190px;
-        width: 190px;
-        height: 42px;
-        box-sizing: border-box;
+      .format-group .control-leading-icon svg {
+        width: 14px;
+        height: 14px;
       }
 
-      .operator-group .control-icon-wrap {
-        height: 42px;
-      }
-
-      .control-group.search-group {
-        order: 2;
-        flex: 1 1 auto;
-        min-width: 180px;
-        width: auto;
-        height: 42px;
-        box-sizing: border-box;
-      }
-
-      .search-group .search-input-wrap {
-        height: 42px;
-        width: 100%;
-      }
-
-      .import-group {
-        order: 3;
-        flex: 0 0 auto;
-        width: auto;
-        margin: 0;
-        height: 42px;
-        box-sizing: border-box;
-      }
-
-      .import-group .btn {
-        height: 42px;
-        width: auto;
-        min-width: 108px;
-        padding: 0 16px;
-        box-sizing: border-box;
-      }
-
-      .controls-bar select,
-      .controls-bar input[type="text"] {
-        height: 42px;
-        box-sizing: border-box;
-      }
-
-      .export-group {
-        display: contents;
-      }
-
-      .export-group .export-select-wrap {
-        order: 4;
-        flex: 0 0 238px;
-        min-width: 238px;
-        width: 238px;
-        height: 42px;
-        box-sizing: border-box;
-        background-color: var(--bg-input);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        overflow: hidden;
-        transition: border-color 0.2s, box-shadow 0.2s;
-      }
-
-      .export-group .export-select-wrap:focus-within {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
-      }
-
-      .export-group select {
-        height: 100%;
-        width: 100%;
-        min-width: 0;
-        box-sizing: border-box;
-      }
-
-      .export-group select:focus {
-        box-shadow: none;
-      }
-
-      .export-group .btn-primary {
-        order: 5;
-        flex: 0 0 auto;
-        width: auto;
-        margin: 0;
-        height: 42px;
-        min-width: 108px;
-        padding: 0 16px;
-        border-radius: 8px;
-        box-sizing: border-box;
+      .format-group select {
+        font-size: 16px;
+        font-weight: 400;
+        letter-spacing: -0.03em;
+        padding: 0 20px 0 27px;
+        background-position: right 6px center;
+        background-size: 11px 11px;
       }
     }
   </style>
@@ -1868,8 +1905,8 @@
             </svg>
           </span>
           <span>DILOC Editor</span>
-          <button type="button" id="versionBadgeBtn" class="version-badge" role="button" tabindex="0" title="Cek versi &amp; pembaruan aplikasi" aria-label="Versi 1.11.1 — Cek pembaruan aplikasi" onclick="openVersionCheckModal()">
-            <span>v1.11.1</span>
+          <button type="button" id="versionBadgeBtn" class="version-badge" role="button" tabindex="0" title="Cek versi &amp; pembaruan aplikasi" aria-label="Versi 1.12.2 — Cek pembaruan aplikasi" onclick="openVersionCheckModal()">
+            <span>v1.12.2</span>
             <span class="ui-icon icon-emerald" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
             </span>
@@ -1887,14 +1924,6 @@
         <p class="subtitle-text">Editor Preset &amp; Macro Logsheet DILOC Pabrik Urea 1B</p>
       </div>
       <div class="header-status" id="headerStatusContainer">
-        <div class="status-row" id="headerDraftSlot">
-          <span id="draftSavedBadge" class="draft-badge" aria-live="polite">
-            <span class="ui-icon icon-emerald" aria-hidden="true">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-            </span>
-            <span id="draftSavedText">Draft tersimpan</span>
-          </span>
-        </div>
         <div id="importedFileInfo" class="imported-file-info">
           <span id="importedFileIcon" class="imported-file-icon" aria-hidden="true">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
@@ -1933,20 +1962,8 @@
         <input type="file" id="importFileInput" accept=".json,.pmr,application/json,text/plain" aria-label="Import file preset DILOC JSON atau macro PMR" onchange="importData(event)">
       </div>
 
-      <div class="control-group search-group">
-        <label class="field-label" for="searchInput">Cari Tag / Equipment</label>
-        <div class="search-input-wrap">
-          <span class="control-leading-icon" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </span>
-          <input type="text" id="searchInput" aria-label="Cari Tag atau Equipment" enterkeyhint="search" placeholder="Cari tag / equipment (cth: LG-801, GA504...)" oninput="filterParameters()">
-          <button type="button" id="clearSearchBtn" class="clear-search-btn" title="Hapus pencarian" aria-label="Hapus pencarian" onclick="clearSearch()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
-      </div>
-
-      <div class="export-wrapper export-group">
+      <div class="control-group format-group">
+        <label class="field-label" for="exportFormat">Format File</label>
         <div class="control-icon-wrap export-select-wrap">
           <span class="control-leading-icon" aria-hidden="true">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
@@ -1956,76 +1973,90 @@
             <option value="pmr">Macro PMR (.pmr)</option>
           </select>
         </div>
-        <button type="button" class="btn btn-primary" onclick="handleExport()">
-          <span class="ui-icon" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          </span>
-          <span>Export</span>
-        </button>
       </div>
+
+      <button type="button" class="btn btn-primary export-btn" onclick="handleExport()">
+        <span class="ui-icon" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </span>
+        <span>Export</span>
+      </button>
     </div>
 
     <div class="quick-toolbar">
-      <div class="toolbar-status-row" id="mobileToolbarStatusSlot"></div>
-      <div class="toolbar-left">
-        <button type="button" class="btn btn-share" title="Kirim langsung via LocalSend / Share HP" onclick="handleShare()">
-          <span class="ui-icon" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-          </span>
-          <span>Share</span>
-        </button>
-        <button type="button" id="nextEmptyBtn" class="btn btn-ghost" onclick="jumpToNextEmpty()">
-          <span class="ui-icon" aria-hidden="true">
+      <div class="toolbar-search-row">
+        <div class="search-input-wrap">
+          <span class="control-leading-icon" aria-hidden="true">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </span>
-          <span id="nextEmptyBtnText">Sel Kosong</span>
-        </button>
-        <button type="button" class="btn btn-danger-ghost" onclick="resetFormConfirm()">
-          <span class="ui-icon" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-          </span>
-          <span>Reset</span>
-        </button>
+          <input type="text" id="searchInput" aria-label="Cari Tag atau Equipment" enterkeyhint="search" placeholder="Cari tag / equipment..." oninput="filterParameters()">
+          <button type="button" id="clearSearchBtn" class="clear-search-btn" title="Hapus pencarian" aria-label="Hapus pencarian" onclick="clearSearch()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
       </div>
-      <div class="toolbar-right" id="desktopToolbarRightSlot">
+      <div class="toolbar-status-row" id="toolbarStatusSlot">
         <span id="filterMatchInfo" class="filter-info"></span>
         <span id="filledCountBadge" class="filled-badge">Terisi: 0 / 0 Cell</span>
+        <span id="draftSavedBadge" class="draft-badge" aria-live="polite">
+          <span class="ui-icon icon-emerald" aria-hidden="true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </span>
+          <span id="draftSavedText">Draft tersimpan</span>
+        </span>
       </div>
     </div>
 
     <div id="loadErrorBox" class="load-error-box"></div>
 
     <form id="pmrForm" onsubmit="event.preventDefault();">
-      <!-- Horizontal Scrollable Excel Grid (Desktop Auto) -->
-      <div class="excel-container" id="excelScrollContainer">
-        <table class="excel-table" id="excelTable">
-          <thead>
-            <tr id="headerEquipmentRow"></tr>
-            <tr id="headerTagRow"></tr>
-            <tr id="headerUnitRow"></tr>
-          </thead>
-          <tbody>
-            <tr class="input-row" id="inputCellsRow"></tr>
-          </tbody>
-        </table>
-      </div>
+      <div class="table-card">
+        <div class="table-action-strip">
+          <button type="button" id="nextEmptyBtn" class="btn btn-ghost table-action-empty" onclick="jumpToNextEmpty()">
+            <span class="ui-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <span id="nextEmptyBtnText">Sel Kosong</span>
+          </button>
+          <button type="button" class="btn btn-danger-ghost table-action-reset" onclick="resetFormConfirm()">
+            <span class="ui-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            </span>
+            <span>Reset</span>
+          </button>
+        </div>
 
-      <!-- Vertical Table Layout (Mobile Auto) -->
-      <div class="vertical-container" id="verticalScrollContainer" style="display: none;">
-        <table class="vertical-table" id="verticalTable">
-          <thead>
-            <tr>
-              <th>Equipment &amp; Tag (Tap baris untuk isi)</th>
-              <th class="col-val">Nilai</th>
-            </tr>
-          </thead>
-          <tbody id="verticalBodyRows"></tbody>
-        </table>
+        <!-- Horizontal Scrollable Excel Grid (Desktop Auto) -->
+        <div class="excel-container" id="excelScrollContainer">
+          <table class="excel-table" id="excelTable">
+            <thead>
+              <tr id="headerEquipmentRow"></tr>
+              <tr id="headerTagRow"></tr>
+              <tr id="headerUnitRow"></tr>
+            </thead>
+            <tbody>
+              <tr class="input-row" id="inputCellsRow"></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Vertical Table Layout (Mobile Auto) -->
+        <div class="vertical-container" id="verticalScrollContainer" style="display: none;">
+          <table class="vertical-table" id="verticalTable">
+            <thead>
+              <tr>
+                <th>Equipment &amp; Tag</th>
+                <th class="col-val">Nilai</th>
+              </tr>
+            </thead>
+            <tbody id="verticalBodyRows"></tbody>
+          </table>
+        </div>
       </div>
     </form>
 
     <footer class="app-footer">
-      © 2026 — Developed by FIKRI
+      ©2026 — Developed by FIKRI
     </footer>
   </div>
 
@@ -2051,6 +2082,6 @@
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
   </button>
 
-  <script src="app.js?v=1.11.1"></script>
+  <script src="app.js?v=1.12.2"></script>
 </body>
 </html>
