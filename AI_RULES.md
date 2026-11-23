@@ -10,7 +10,7 @@
 - **Project ID:** `urea1b-project-database`
 - **Collection:** `diloc_master_parameter`
 - **Dokumen:** `oplap_1`, `oplap_2`, `oplap_3`
-- **Jumlah Parameter Acuan:** Op Lap 1 (`167` item, indeks `0–166`), Op Lap 2 (`51` item, indeks `0–50`), Op Lap 3 (`44` item, indeks `0–43`).
+- **Jumlah Parameter Acuan:** Op Lap 1 (`167` item, indeks `0–166`), Op Lap 2 (`51` item, indeks `0–50`), Op Lap 3 (`45` item, indeks `0–44`).
 - **Skema Field per Parameter:** `index` (`integerValue`), `tag` (`stringValue`), `equipment` (`stringValue`), `type` (`stringValue`: `number` / `text`), dan `unit` (`stringValue`: `""` jika kosong, dilarang `null`). Status `randomize` tidak disimpan di master database.
 - **Prinsip Sinkronisasi:** Selalu pertahankan database master bawaan di kode sebagai *local-first fallback* saat *offline* atau saat dokumen cloud belum tersedia. Lakukan *auto-pull* saat *online* dan simpan ke `localStorage`.
 
