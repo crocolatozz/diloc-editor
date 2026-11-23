@@ -1,4 +1,4 @@
-const APP_VERSION = '1.12.2';
+const APP_VERSION = '1.12.3';
 const MASTER_SCHEMA_VERSION = '1.12.2';
 const VERSION_STORAGE_KEY = 'pmr_editor_installed_version';
 const POST_UPDATE_TOAST_KEY = 'pmr_editor_post_update_reload';
@@ -14,9 +14,9 @@ const EXPECTED_OPERATOR_COUNTS = {
   operator3: 45
 };
 const UPDATE_HIGHLIGHTS = [
-  'Normalisasi pilihan default "-" pada dropdown (ON/OFF, A/B, Huruf) sebagai sel kosong di hitungan Terisi, Sel Kosong, validasi, dan export JSON/PMR',
-  'Pembaruan stempel waktu sinkronisasi Firestore menjadi format waktu lokal perangkat (Disinkronkan DD/MM/YY HH:mm) yang aman dari Invalid Date',
-  'Penambahan penanda schemaVersion pada dokumen master Firestore saat Push dan penguncian Auto-Pull agar data lama tanpa schemaVersion terbaru tidak menimpa master lokal'
+  'Penyeragaman seluruh stempel waktu (draft tersimpan & sinkronisasi Database Master) ke format waktu lokal 24-jam DD/MM/YY HH:mm yang aman dari Invalid Date',
+  'Penambahan skrip npm run lint berbasis node --check di package.json serta pemeriksaan sintaks otomatis sebelum build di workflow GitHub Actions',
+  'Pembaruan versi ke v1.12.3 serta penyegaran cache PWA (diloc-editor-v1.12.3)'
 ];
 
 const SVG_ICON_PATHS = {
@@ -678,7 +678,7 @@ function normalizeMasterParameters(rawList) {
   });
 }
 
-function parseMasterSyncDate(tsInput) {
+function parseLocalDateTimeInput(tsInput) {
   if (tsInput === null || tsInput === undefined || tsInput === '') return null;
   if (tsInput instanceof Date) {
     return isNaN(tsInput.getTime()) ? null : tsInput;
@@ -696,12 +696,51 @@ function parseMasterSyncDate(tsInput) {
     const d = new Date(num);
     return isNaN(d.getTime()) ? null : d;
   }
+
+  // Legacy DD/MM/YY HH:mm, DD/MM/YYYY HH:mm, or DD/MM(, )HH:mm
+  const legacyFull = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})[\s,]+(\d{1,2}):(\d{2})$/);
+  if (legacyFull) {
+    const day = parseInt(legacyFull[1], 10);
+    const month = parseInt(legacyFull[2], 10);
+    const rawYear = parseInt(legacyFull[3], 10);
+    const year = legacyFull[3].length === 2 ? 2000 + rawYear : rawYear;
+    const hour = parseInt(legacyFull[4], 10);
+    const minute = parseInt(legacyFull[5], 10);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+      const d = new Date(year, month - 1, day, hour, minute, 0, 0);
+      if (d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day) {
+        return d;
+      }
+    }
+    return null;
+  }
+
+  const legacyShort = str.match(/^(\d{1,2})\/(\d{1,2})[\s,]+(\d{1,2}):(\d{2})$/);
+  if (legacyShort) {
+    const day = parseInt(legacyShort[1], 10);
+    const month = parseInt(legacyShort[2], 10);
+    const hour = parseInt(legacyShort[3], 10);
+    const minute = parseInt(legacyShort[4], 10);
+    const year = new Date().getFullYear();
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+      const d = new Date(year, month - 1, day, hour, minute, 0, 0);
+      if (d.getMonth() === month - 1 && d.getDate() === day) {
+        return d;
+      }
+    }
+    return null;
+  }
+
   const d = new Date(str);
   return isNaN(d.getTime()) ? null : d;
 }
 
-function formatMasterSyncTimestamp(tsInput) {
-  const dateObj = parseMasterSyncDate(tsInput);
+function parseMasterSyncDate(tsInput) {
+  return parseLocalDateTimeInput(tsInput);
+}
+
+function formatLocalDateTime(tsInput) {
+  const dateObj = parseLocalDateTimeInput(tsInput);
   if (!dateObj) return '';
   const dd = String(dateObj.getDate()).padStart(2, '0');
   const mo = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -709,6 +748,10 @@ function formatMasterSyncTimestamp(tsInput) {
   const hh = String(dateObj.getHours()).padStart(2, '0');
   const mi = String(dateObj.getMinutes()).padStart(2, '0');
   return `${dd}/${mo}/${yy} ${hh}:${mi}`;
+}
+
+function formatMasterSyncTimestamp(tsInput) {
+  return formatLocalDateTime(tsInput);
 }
 
 function getMasterSyncMeta() {
@@ -1588,12 +1631,9 @@ function getLocalDateTimeFileTag() {
   return `${yyyy}-${mm}-${dd}_${hh}-${mi}`;
 }
 
-function getLocalDateTimeShort(dateObj = new Date()) {
-  const dd = String(dateObj.getDate()).padStart(2, '0');
-  const mo = String(dateObj.getMonth() + 1).padStart(2, '0');
-  const hh = String(dateObj.getHours()).padStart(2, '0');
-  const mi = String(dateObj.getMinutes()).padStart(2, '0');
-  return `${dd}/${mo}, ${hh}:${mi}`;
+function getLocalDateTimeShort(dateInput = new Date()) {
+  const parsed = parseLocalDateTimeInput(dateInput) || new Date();
+  return formatLocalDateTime(parsed);
 }
 
 function setImportedFileBadge(text, isDraft = false) {
@@ -1618,7 +1658,7 @@ function setImportedFileBadge(text, isDraft = false) {
   }
 }
 
-function updateDraftSavedIndicator(visible, timestampMs = null) {
+function updateDraftSavedIndicator(visible, timestampInput = null) {
   const badge = document.getElementById('draftSavedBadge');
   if (!badge) return;
 
@@ -1627,14 +1667,8 @@ function updateDraftSavedIndicator(visible, timestampMs = null) {
     return;
   }
 
-  let dateObj = new Date();
-  if (timestampMs) {
-    const parsed = new Date(timestampMs);
-    if (!isNaN(parsed.getTime())) {
-      dateObj = parsed;
-    }
-  }
-  const timeStr = getLocalDateTimeShort(dateObj);
+  const dateObj = parseLocalDateTimeInput(timestampInput) || new Date();
+  const timeStr = formatLocalDateTime(dateObj);
 
   const textEl = document.getElementById('draftSavedText');
   if (textEl) {

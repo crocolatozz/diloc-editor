@@ -1,6 +1,6 @@
 # DILOC Editor — Logsheet DILOC Urea 1B
 
-![Version](https://img.shields.io/badge/version-1.12.2-10b981?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.12.3-10b981?style=flat-square)
 ![Vite](https://img.shields.io/badge/build-Vite-646cff?style=flat-square&logo=vite&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-Offline%20Ready-0ea5e9?style=flat-square)
 ![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android%20%7C%20Web-334155?style=flat-square)
@@ -26,9 +26,9 @@ Aplikasi web progresif (**PWA**) ringan berbasis **Vite + Vanilla JavaScript** u
 - **Import Cerdas & Pengisian Fleksibel**
   - Auto-detect file `.json` (`diloc-automator-preset`) dengan perpindahan otomatis ke `opLap` target dan pemetaan berbasis `cell.index`, maupun import ulang file `.pmr` (*PyMacroRecord*).
   - Mendukung input teks bebas pada parameter bertipe `"text"`, pilihan dropdown (`A/B`, `ON/OFF`, `Huruf`) dengan nilai default `"-"` yang dihitung sebagai sel kosong saat validasi & diekspor bersih menjadi `""`, serta filter angka presisi pada parameter numerik (termasuk angka `0`).
-- **Control Card, Sticky Toolbar, & Auto-Save Draft (`DD/MM, HH:mm`)**
+- **Control Card, Sticky Toolbar, & Auto-Save Draft (`DD/MM/YY HH:mm`)**
   - Control Card 2 baris rata kanan di HP portrait (`< 768px`) dan 1 baris horizontal di landscape/tablet/desktop (`>= 768px`) dengan label `Pilih Operator` dan `Format File` yang konsisten tampil, disertai Sticky Toolbar pencarian + indikator status serta strip aksi `Sel Kosong` / `Reset` di atas card tabel.
-  - Setiap ketikan dan status `checked` tersimpan otomatis di `localStorage` beserta stempel waktu (`DD/MM, HH:mm`).
+  - Setiap ketikan dan status `checked` tersimpan otomatis di `localStorage` beserta stempel waktu lokal (`DD/MM/YY HH:mm`).
 - **Native App Experience (iOS & Android)**
   - Mendukung instalasi *Add to Home Screen* dengan *Splash Screen* 1 lapis murni bawaan sistem (`apple-touch-startup-image` di iOS & WebAPK di Android) disertai transisi masuk *smooth fade-in* CSS murni dan berjalan penuh offline (*Service Worker*).
   - Optimasi *safe-area* atas & bawah anti-balok hitam untuk iPhone, input `16px` anti-zoom di iOS Safari, toast notification multi-varian, serta *haptic feedback* di Android.
@@ -78,7 +78,10 @@ npm install
 # 3. Jalankan server development
 npm run dev
 
-# 4. Build untuk produksi (hasil di folder dist/)
+# 4. Periksa sintaks JavaScript
+npm run lint
+
+# 5. Build untuk produksi (hasil di folder dist/)
 npm run build
 ```
 

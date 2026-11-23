@@ -1,5 +1,12 @@
 # Changelog — DILOC Editor
 
+## [v1.12.3] - 2026-11-23 (Bug Fix / Patch)
+- **Penyeragaman Seluruh Timestamp ke `DD/MM/YY HH:mm` (Waktu Lokal)**: Menyeragamkan seluruh stempel waktu aplikasi—termasuk indikator **Draft tersimpan** (`localStorage` / draft aktif) dan waktu sinkronisasi **Database Master**—agar konsisten memakai waktu lokal perangkat 24-jam berformat `DD/MM/YY HH:mm` dengan parser terpadu yang aman terhadap format ISO, numerik, maupun format lama `v1.12.1`/`v1.12.2` tanpa `Invalid Date` atau `NaN`.
+- **Skrip `lint` & Integrasi CI/CD GitHub Actions**: Menambahkan skrip `"lint"` berbasis `node --check` di `package.json` untuk memeriksa sintaks `public/app.js`, `public/sw.js`, dan `vite.config.js`, serta menjalankan langkah `npm run lint` pada `.github/workflows/deploy.yml` sebelum `vite build`.
+- **Pembaruan Versi & Cache PWA**: Menaikkan versi ke `v1.12.3` di UI, `manifest.json`, `package.json`, `version.json`, `README.md`, `CHANGELOG.md`, dan cache Service Worker `diloc-editor-v1.12.3`.
+
+---
+
 ## [v1.12.2] - 2026-11-23 (Bug Fix / Patch)
 - **Normalisasi Dropdown Default `"-"` Sebagai Sel Kosong**: Menampilkan opsi default dropdown (`ON/OFF`, `A/B`, `Huruf`) sebagai `"-"` di antarmuka sambil memperlakukan `"-"`, string kosong `""`, dan spasi sebagai sel kosong di balik layar—tidak ikut terhitung pada `Terisi: X / N Cell`, tetap masuk navigasi `Sel Kosong (X)` & validasi sebelum export, dikonversi bersih menjadi `""` (`"checked": false`) saat export `.json` / `.pmr`, serta otomatis kembali ke default `"-"` ketika mengimpor sel bernilai `""` atau `"-"`.
 - **Format Stempel Waktu Lokal Sinkronisasi (`Disinkronkan DD/MM/YY HH:mm`)**: Memperbarui tampilan waktu sinkronisasi Firestore pada bagian **Database Master** di Modal Info Versi menjadi format jam lokal 24-jam perangkat (`DD/MM/YY HH:mm`), menyimpan metadata waktu lokal/ISO pada setiap `Auto-Pull` atau `Push` sukses, serta memastikan parser aman terhadap cache lama maupun nilai rusak tanpa menghasilkan `Invalid Date` atau `NaN`.
