@@ -1,5 +1,13 @@
 # Changelog — DILOC Editor
 
+## [v1.12.5] - 2026-11-25 (Bug Fix / Patch)
+- **Perapian Kerapatan Sticky Toolbar**: Mereset `flex: 0 0 auto` pada `.toolbar-search-row` dan `.toolbar-status-row` di mode mobile vertikal (`< 768px`) agar tidak mewarisi `flex-basis: 200px` sebagai tinggi berlebih di bawah kolom pencarian **`Cari tag / equipment...`**, sekaligus merapatkan padding dan jarak antar baris tanpa memotong pill **`Draft tersimpan`** (`0.75rem`).
+- **Penguncian Pergeseran Horizontal (Native App Feel)**: Menambahkan `overflow-x: clip` serta `overscroll-behavior-x: none` pada `html`, `body`, dan `.app-container` (tanpa mengganggu `position: sticky` maupun scroll vertikal), menyelaraskan margin negatif `.quick-toolbar` dengan variabel `--page-pad-x` di layar `< 400px`, dan mengurung *horizontal scroll* tabel desktop di `.excel-container` dengan `overscroll-behavior-x: contain`.
+- **Perbaikan Siklus Pembaruan PWA (`sw.js` & `app.js`)**: Menghapus pemanggilan `skipWaiting()` otomatis saat fase `install` Service Worker maupun saat `updatefound` di latar belakang sehingga aset versi baru diunduh dan disiapkan ke cache baru tanpa mengganti tampilan atau melakukan auto-reload sebelum pengguna menekan tombol **Update** (`waiting` -> `SKIP_WAITING` -> satu kali `window.location.reload()` terkontrol).
+- **Pembaruan Versi & Cache PWA**: Menaikkan versi ke `v1.12.5` di UI, `manifest.json`, `package.json`, `version.json`, `README.md`, `CHANGELOG.md`, dan cache Service Worker `diloc-editor-v1.12.5`.
+
+---
+
 ## [v1.12.4] - 2026-11-25 (Bug Fix / Patch)
 - **Perbaikan Pill `Draft tersimpan` (`DD/MM/YY HH:mm`)**: Mengembalikan ukuran font pill **Draft tersimpan** ke ukuran semula (`0.75rem`) yang proporsional dengan pill di sekitarnya, menghilangkan pemotongan teks (`ellipsis`) agar panjang timestamp `DD/MM/YY HH:mm` melar utuh secara natural, serta mengaktifkan `flex-wrap` aman pada toolbar di tablet/HP sempit guna mencegah *overflow* horizontal.
 - **Pembersihan Dead Code**: Menghapus fungsi, state, dan aturan gaya sisa iterasi sebelumnya yang tidak lagi digunakan (`getLocalDateTimeShort`, `parseMasterSyncDate`, `updatePromptShown`, cabang non-background di `showAppUpdateCard`, pengembalian objek tak terpakai di `makeMetaRow`, serta kelas CSS mati `.icon-sky`, `.icon-rose`, `.status-row`, dan `.version-meta-val.{amber,sky,rose}` beserta atribut redundan pada tombol versi).

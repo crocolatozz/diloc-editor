@@ -38,6 +38,7 @@
       --border-color: #334155;
       --excel-border: #475569;
       --ios-top-clearance: env(safe-area-inset-top, 0px);
+      --page-pad-x: 14px;
       --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
     }
 
@@ -64,7 +65,11 @@
     }
 
     html, body {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: clip;
       touch-action: manipulation;
+      overscroll-behavior-x: none;
       overscroll-behavior-y: contain;
     }
 
@@ -72,9 +77,9 @@
       background-color: var(--bg-primary);
       color: var(--text-main);
       padding-top: calc(var(--ios-top-clearance) + 12px);
-      padding-right: max(14px, env(safe-area-inset-right, 0px));
+      padding-right: max(var(--page-pad-x), env(safe-area-inset-right, 0px));
       padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-      padding-left: max(14px, env(safe-area-inset-left, 0px));
+      padding-left: max(var(--page-pad-x), env(safe-area-inset-left, 0px));
       min-height: 100dvh;
       min-height: -webkit-fill-available;
       display: flex;
@@ -98,6 +103,8 @@
       max-width: 100%;
       margin: 0 auto;
       width: 100%;
+      min-width: 0;
+      overflow-x: clip;
       flex: 1;
       display: flex;
       flex-direction: column;
@@ -625,9 +632,11 @@
       flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
-      gap: 10px 12px;
+      gap: 8px 12px;
       margin-bottom: 12px;
       padding: 8px 12px;
+      max-width: 100%;
+      min-width: 0;
       background-color: rgba(15, 23, 42, 0.94);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
@@ -735,11 +744,18 @@
       box-sizing: border-box;
     }
 
+    #pmrForm {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+    }
+
     /* HORIZONTAL EXCEL-LIKE GRID (DESKTOP AUTO) */
     .excel-container {
       width: 100%;
       overflow-x: auto;
       overflow-y: hidden;
+      overscroll-behavior-x: contain;
       background-color: var(--bg-card);
       opacity: 1;
       transition: opacity 0.2s var(--ease-spring);
@@ -1626,13 +1642,14 @@
     @media (max-width: 767px) {
       :root {
         --ios-top-clearance: calc(env(safe-area-inset-top, 0px) + 18px);
+        --page-pad-x: 10px;
       }
 
       body {
         padding-top: calc(var(--ios-top-clearance) + 12px);
-        padding-right: max(10px, env(safe-area-inset-right, 0px));
+        padding-right: max(var(--page-pad-x), env(safe-area-inset-right, 0px));
         padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-        padding-left: max(10px, env(safe-area-inset-left, 0px));
+        padding-left: max(var(--page-pad-x), env(safe-area-inset-left, 0px));
       }
 
       body::before {
@@ -1765,17 +1782,21 @@
         background-color: rgba(15, 23, 42, 0.98);
         flex-direction: column;
         align-items: stretch;
-        padding: 8px 10px;
+        padding: 7px 10px;
         border-radius: 0 0 10px 10px;
-        margin-left: calc(-1 * max(10px, env(safe-area-inset-left)));
-        margin-right: calc(-1 * max(10px, env(safe-area-inset-right)));
+        margin-top: 0;
+        margin-bottom: 10px;
+        margin-left: calc(-1 * max(var(--page-pad-x), env(safe-area-inset-left, 0px)));
+        margin-right: calc(-1 * max(var(--page-pad-x), env(safe-area-inset-right, 0px)));
         border-left: none;
         border-right: none;
-        gap: 8px;
+        gap: 6px;
+        max-width: none;
       }
 
       .toolbar-status-row {
         order: 1;
+        flex: 0 0 auto;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -1799,6 +1820,7 @@
 
       .toolbar-search-row {
         order: 2;
+        flex: 0 0 auto;
         width: 100%;
         min-width: 0;
       }
@@ -1828,9 +1850,8 @@
     }
 
     @media (max-width: 399px) {
-      body {
-        padding-right: max(8px, env(safe-area-inset-right, 0px));
-        padding-left: max(8px, env(safe-area-inset-left, 0px));
+      :root {
+        --page-pad-x: 8px;
       }
 
       .controls-bar {
@@ -1876,8 +1897,8 @@
             </svg>
           </span>
           <span>DILOC Editor</span>
-          <button type="button" id="versionBadgeBtn" class="version-badge" title="Cek versi &amp; pembaruan aplikasi" aria-label="Versi 1.12.4 — Cek pembaruan aplikasi" onclick="openVersionCheckModal()">
-            <span>v1.12.4</span>
+          <button type="button" id="versionBadgeBtn" class="version-badge" title="Cek versi &amp; pembaruan aplikasi" aria-label="Versi 1.12.5 — Cek pembaruan aplikasi" onclick="openVersionCheckModal()">
+            <span>v1.12.5</span>
             <span class="ui-icon icon-emerald" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
             </span>
@@ -2053,6 +2074,6 @@
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
   </button>
 
-  <script src="app.js?v=1.12.4"></script>
+  <script src="app.js?v=1.12.5"></script>
 </body>
 </html>

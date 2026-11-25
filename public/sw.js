@@ -1,4 +1,4 @@
-const CACHE_NAME = 'diloc-editor-v1.12.4';
+const CACHE_NAME = 'diloc-editor-v1.12.5';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -27,21 +27,20 @@ const CORE_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
+  // Download and precache new version assets in background without forcing skipWaiting()
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) =>
-        Promise.allSettled(
-          CORE_ASSETS.map(async (asset) => {
-            try {
-              const res = await fetch(new Request(asset, { cache: 'no-store' }));
-              if (res && res.ok) {
-                await cache.put(asset, res.clone());
-              }
-            } catch (_) {}
-          })
-        )
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.allSettled(
+        CORE_ASSETS.map(async (asset) => {
+          try {
+            const res = await fetch(new Request(asset, { cache: 'no-store' }));
+            if (res && res.ok) {
+              await cache.put(asset, res.clone());
+            }
+          } catch (_) {}
+        })
       )
-      .then(() => self.skipWaiting())
+    )
   );
 });
 
@@ -68,41 +67,32 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 
+  // Always check version.json directly against network so background version checks stay fresh
   if (url.pathname.endsWith('/version.json')) {
     event.respondWith(fetch(new Request(event.request, { cache: 'no-store' })));
     return;
   }
 
-  const isCoreDoc =
-    event.request.mode === 'navigate' ||
-    url.pathname.endsWith('.html') ||
-    url.pathname.endsWith('.js') ||
-    url.pathname.endsWith('.json') ||
-    url.pathname.endsWith('.md');
-
-  const fetchReq = isCoreDoc
-    ? new Request(event.request, { cache: 'no-store' })
-    : event.request;
-
+  // Keep active version cache intact until user explicitly triggers Update (SKIP_WAITING -> reload)
   event.respondWith(
-    fetch(fetchReq)
-      .then((networkRes) => {
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const cached = await cache.match(event.request, { ignoreSearch: true });
+      if (cached) return cached;
+
+      if (event.request.mode === 'navigate') {
+        const cachedIndex = await cache.match('./index.html', { ignoreSearch: true });
+        if (cachedIndex) return cachedIndex;
+      }
+
+      try {
+        const networkRes = await fetch(event.request);
         if (networkRes && networkRes.status === 200) {
-          const clone = networkRes.clone();
-          caches.open(CACHE_NAME)
-            .then((cache) => cache.put(event.request, clone))
-            .catch(() => {});
+          cache.put(event.request, networkRes.clone()).catch(() => {});
         }
         return networkRes;
-      })
-      .catch(() =>
-        caches.match(event.request, { ignoreSearch: true }).then((cached) => {
-          if (cached) return cached;
-          if (event.request.mode === 'navigate') {
-            return caches.match('./index.html');
-          }
-          return new Response('Offline', { status: 503, statusText: 'Offline' });
-        })
-      )
+      } catch (_) {
+        return new Response('Offline', { status: 503, statusText: 'Offline' });
+      }
+    })
   );
 });

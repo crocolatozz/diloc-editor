@@ -1,4 +1,4 @@
-const APP_VERSION = '1.12.4';
+const APP_VERSION = '1.12.5';
 const MASTER_SCHEMA_VERSION = '1.12.2';
 const VERSION_STORAGE_KEY = 'pmr_editor_installed_version';
 const POST_UPDATE_TOAST_KEY = 'pmr_editor_post_update_reload';
@@ -14,9 +14,9 @@ const EXPECTED_OPERATOR_COUNTS = {
   operator3: 45
 };
 const UPDATE_HIGHLIGHTS = [
-  'Perbaikan pill Draft tersimpan agar melar penuh mengikuti format DD/MM/YY HH:mm dengan ukuran font proporsional dan aman di semua ukuran layar',
-  'Pembersihan dead code dan aturan gaya tidak terpakai untuk menjaga keandalan serta performa aplikasi',
-  'Perapian teks status, dialog, dan notifikasi agar lebih jelas, konsisten, dan ramah bagi operator lapangan'
+  'Penghapusan ruang kosong di bawah kolom pencarian sticky toolbar agar jarak atas-bawah rapat dan proporsional tanpa memotong pill Draft tersimpan',
+  'Penguncian pergeseran serta goyangan horizontal (overflow-x: clip dan overscroll-behavior-x: none) agar antarmuka terasa solid seperti aplikasi native',
+  'Penyempurnaan siklus pembaruan PWA: aset versi baru diunduh di latar belakang dan tampilan baru baru aktif setelah pengguna menekan tombol Update'
 ];
 
 const SVG_ICON_PATHS = {
@@ -400,18 +400,16 @@ function initPwaForceUpdate() {
         setVersionNotifDot(true, pendingRemoteVersion || '');
         if (!bgUpdateToastShown) {
           bgUpdateToastShown = true;
-          showToast('Pembaruan aplikasi siap diterapkan. Ketuk tombol versi untuk muat ulang.', 'warning', 4500);
+          showToast('Pembaruan aplikasi siap diterapkan. Ketuk tombol versi untuk memperbarui.', 'warning', 4500);
         }
         if (!manualUpdateState && !activeModalResolver) {
           showAppUpdateCard({ newVer: pendingRemoteVersion || null });
         }
       };
 
-      if (reg.waiting) {
-        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        if (!manualUpdateState) {
-          notifyBackgroundSwReady();
-        }
+      // Keep waiting SW in waiting state until user explicitly taps Update
+      if (reg.waiting && !manualUpdateState) {
+        notifyBackgroundSwReady();
       }
 
       reg.addEventListener('updatefound', () => {
@@ -419,7 +417,6 @@ function initPwaForceUpdate() {
         if (!newWorker) return;
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            newWorker.postMessage({ type: 'SKIP_WAITING' });
             if (!manualUpdateState) {
               notifyBackgroundSwReady();
             }
@@ -441,6 +438,7 @@ function initPwaForceUpdate() {
           return;
         }
 
+        // Never auto-reload without explicit Update confirmation
         bgUpdatePromptShown = false;
         notifyBackgroundSwReady();
       });
@@ -466,13 +464,70 @@ function initPwaForceUpdate() {
   });
 }
 
+async function applyPendingPwaUpdate() {
+  setVersionNotifDot(false);
+  let reg = swRegistration;
+  if (!reg && 'serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
+    try {
+      reg = (await navigator.serviceWorker.getRegistration('./')) || (await navigator.serviceWorker.getRegistration());
+      if (reg) swRegistration = reg;
+    } catch (_) {}
+  }
+
+  const activateAndReload = (waitingWorker) => {
+    manualUpdateState = {
+      onControllerChanged: () => {
+        fadeOutAndReload();
+      }
+    };
+    waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+    setTimeout(() => {
+      fadeOutAndReload();
+    }, 1800);
+  };
+
+  if (reg && reg.waiting) {
+    activateAndReload(reg.waiting);
+    return;
+  }
+
+  if (reg && reg.installing) {
+    showToast('Menyiapkan aset versi terbaru...', 'info', 3000);
+    const installingWorker = reg.installing;
+    const onStateChange = () => {
+      if (installingWorker.state === 'installed') {
+        installingWorker.removeEventListener('statechange', onStateChange);
+        const readyWorker = reg.waiting || installingWorker;
+        activateAndReload(readyWorker);
+      } else if (installingWorker.state === 'redundant') {
+        installingWorker.removeEventListener('statechange', onStateChange);
+        fadeOutAndReload();
+      }
+    };
+    installingWorker.addEventListener('statechange', onStateChange);
+    return;
+  }
+
+  if (reg) {
+    try {
+      await reg.update();
+      if (reg.waiting) {
+        activateAndReload(reg.waiting);
+        return;
+      }
+    } catch (_) {}
+  }
+
+  fadeOutAndReload();
+}
+
 async function showAppUpdateCard({ newVer = null } = {}) {
   if (bgUpdatePromptShown) return;
   bgUpdatePromptShown = true;
 
   const targetVerLabel = newVer ? `v${newVer}` : 'Terbaru';
   const title = `Update ${targetVerLabel} Tersedia`;
-  const intro = `Versi baru DILOC Editor${newVer ? ` (v${newVer})` : ''} sudah tersedia. Muat ulang sekarang agar tampilan dan fitur terbaru langsung aktif.`;
+  const intro = `Versi baru DILOC Editor${newVer ? ` (v${newVer})` : ''} sudah diunduh di latar belakang. Tekan Update untuk menerapkan tampilan terbaru.`;
 
   const choice = await showModal({
     type: 'success',
@@ -482,17 +537,14 @@ async function showAppUpdateCard({ newVer = null } = {}) {
     bullets: [],
     bulletStyle: 'success',
     actions: [
-      { label: 'Muat Ulang Sekarang', icon: 'refresh', value: 'reload', className: 'btn btn-primary' },
+      { label: 'Update', icon: 'refresh', value: 'reload', className: 'btn btn-primary' },
       { label: 'Nanti Saja', value: 'later', className: 'btn btn-ghost' }
     ],
     dismissValue: 'later'
   });
 
   if (choice === 'reload') {
-    if (swRegistration && swRegistration.waiting) {
-      swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
-    }
-    fadeOutAndReload();
+    await applyPendingPwaUpdate();
   }
 }
 
@@ -1199,7 +1251,11 @@ async function openVersionCheckModal() {
     lbl.textContent = labelText;
     checkBtn.appendChild(lbl);
   };
-  setCheckBtnState(false, pendingRemoteVersion ? `Perbarui ke v${pendingRemoteVersion}` : 'Cek & Perbarui Aplikasi');
+  const hasReadyUpdate = Boolean((activeReg && activeReg.waiting) || (pendingRemoteVersion && compareSemver(pendingRemoteVersion, APP_VERSION) > 0));
+  const initialBtnLabel = hasReadyUpdate
+    ? (pendingRemoteVersion ? `Update ke v${pendingRemoteVersion}` : 'Update Sekarang')
+    : 'Cek & Update Aplikasi';
+  setCheckBtnState(false, initialBtnLabel);
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
@@ -1233,8 +1289,10 @@ async function openVersionCheckModal() {
     statusBanner.appendChild(msgSpan);
   };
 
-  if (pendingRemoteVersion && compareSemver(pendingRemoteVersion, APP_VERSION) > 0) {
-    setBanner('warning', 'alertTriangle', `Versi baru v${pendingRemoteVersion} terdeteksi di server. Tekan tombol di bawah untuk memperbarui.`);
+  if (activeReg && activeReg.waiting) {
+    setBanner('warning', 'alertTriangle', 'Pembaruan sudah diunduh di latar belakang. Tekan tombol Update di bawah untuk menerapkan versi baru.');
+  } else if (pendingRemoteVersion && compareSemver(pendingRemoteVersion, APP_VERSION) > 0) {
+    setBanner('warning', 'alertTriangle', `Versi baru v${pendingRemoteVersion} tersedia. Tekan tombol Update di bawah untuk memperbarui.`);
   }
 
   const cleanupVersionCheck = () => {
@@ -1252,7 +1310,7 @@ async function openVersionCheckModal() {
     }
   };
 
-  const finishWithResult = (variant, iconName, message, btnLabel = 'Cek & Perbarui Aplikasi') => {
+  const finishWithResult = (variant, iconName, message, btnLabel = 'Cek & Update Aplikasi') => {
     if (isDisposed) return;
     isChecking = false;
     manualUpdateState = null;
