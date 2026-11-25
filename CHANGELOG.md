@@ -1,5 +1,13 @@
 # Changelog — DILOC Editor
 
+## [v1.12.4] - 2026-11-25 (Bug Fix / Patch)
+- **Perbaikan Pill `Draft tersimpan` (`DD/MM/YY HH:mm`)**: Mengembalikan ukuran font pill **Draft tersimpan** ke ukuran semula (`0.75rem`) yang proporsional dengan pill di sekitarnya, menghilangkan pemotongan teks (`ellipsis`) agar panjang timestamp `DD/MM/YY HH:mm` melar utuh secara natural, serta mengaktifkan `flex-wrap` aman pada toolbar di tablet/HP sempit guna mencegah *overflow* horizontal.
+- **Pembersihan Dead Code**: Menghapus fungsi, state, dan aturan gaya sisa iterasi sebelumnya yang tidak lagi digunakan (`getLocalDateTimeShort`, `parseMasterSyncDate`, `updatePromptShown`, cabang non-background di `showAppUpdateCard`, pengembalian objek tak terpakai di `makeMetaRow`, serta kelas CSS mati `.icon-sky`, `.icon-rose`, `.status-row`, dan `.version-meta-val.{amber,sky,rose}` beserta atribut redundan pada tombol versi).
+- **Perapian Teks, Status Toast & Konsistensi Antarmuka**: Menyelaraskan toast saat semua sel terisi menjadi varian **Success** (hijau), menyederhanakan istilah teknis internal (`Firestore collection`, `file://`, `XAMPP`, `"cells"`, `"diloc-automator-preset"`, `Key.right`, `Service Worker`) menjadi kalimat yang jelas bagi operator lapangan, serta menyeragamkan istilah `sel` pada seluruh dialog dan pesan status.
+- **Pembaruan Versi & Cache PWA**: Menaikkan versi ke `v1.12.4` di UI, `manifest.json`, `package.json`, `version.json`, `README.md`, `CHANGELOG.md`, dan cache Service Worker `diloc-editor-v1.12.4`.
+
+---
+
 ## [v1.12.3] - 2026-11-23 (Bug Fix / Patch)
 - **Penyeragaman Seluruh Timestamp ke `DD/MM/YY HH:mm` (Waktu Lokal)**: Menyeragamkan seluruh stempel waktu aplikasi—termasuk indikator **Draft tersimpan** (`localStorage` / draft aktif) dan waktu sinkronisasi **Database Master**—agar konsisten memakai waktu lokal perangkat 24-jam berformat `DD/MM/YY HH:mm` dengan parser terpadu yang aman terhadap format ISO, numerik, maupun format lama `v1.12.1`/`v1.12.2` tanpa `Invalid Date` atau `NaN`.
 - **Skrip `lint` & Integrasi CI/CD GitHub Actions**: Menambahkan skrip `"lint"` berbasis `node --check` di `package.json` untuk memeriksa sintaks `public/app.js`, `public/sw.js`, dan `vite.config.js`, serta menjalankan langkah `npm run lint` pada `.github/workflows/deploy.yml` sebelum `vite build`.

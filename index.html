@@ -152,14 +152,6 @@
       color: #fbbf24;
     }
 
-    .icon-sky {
-      color: #7dd3fc;
-    }
-
-    .icon-rose {
-      color: #fca5a5;
-    }
-
     .app-title-icon {
       width: 38px;
       height: 38px;
@@ -252,14 +244,6 @@
       gap: 6px;
     }
 
-    .status-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-
     .filled-badge {
       font-size: 0.79rem;
       font-weight: 700;
@@ -271,6 +255,7 @@
       white-space: nowrap;
       display: inline-flex;
       align-items: center;
+      flex-shrink: 0;
     }
 
     .filled-badge.complete {
@@ -290,6 +275,8 @@
       display: none;
       gap: 5px;
       white-space: nowrap;
+      flex-shrink: 0;
+      max-width: 100%;
       transition: background-color 0.25s ease;
     }
 
@@ -635,10 +622,10 @@
       z-index: 20;
       display: flex;
       flex-direction: row;
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
-      gap: 12px;
+      gap: 10px 12px;
       margin-bottom: 12px;
       padding: 8px 12px;
       background-color: rgba(15, 23, 42, 0.94);
@@ -651,8 +638,8 @@
 
     .toolbar-search-row {
       order: 1;
-      flex: 1 1 auto;
-      min-width: 220px;
+      flex: 1 1 200px;
+      min-width: 0;
     }
 
     .toolbar-search-row .search-input-wrap {
@@ -666,12 +653,13 @@
 
     .toolbar-status-row {
       order: 2;
-      flex: 0 0 auto;
+      flex: 0 1 auto;
+      max-width: 100%;
       display: flex;
       justify-content: flex-end;
       align-items: center;
       gap: 8px;
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
       margin-left: auto;
     }
 
@@ -729,10 +717,11 @@
     }
 
     .table-action-empty {
-      width: 152px;
-      flex: 0 0 152px;
+      min-width: 148px;
+      width: auto;
+      flex: 0 0 auto;
       height: 36px;
-      padding: 0 10px;
+      padding: 0 12px;
       font-size: 0.82rem;
       box-sizing: border-box;
     }
@@ -1165,18 +1154,6 @@
 
     .version-meta-val.emerald {
       color: #34d399;
-    }
-
-    .version-meta-val.amber {
-      color: #fbbf24;
-    }
-
-    .version-meta-val.sky {
-      color: #38bdf8;
-    }
-
-    .version-meta-val.rose {
-      color: #fca5a5;
     }
 
     .version-meta-sync-left {
@@ -1685,10 +1662,6 @@
         display: none;
       }
 
-      .status-row {
-        justify-content: flex-start;
-      }
-
       .imported-file-name {
         max-width: 210px;
       }
@@ -1808,7 +1781,7 @@
         align-items: center;
         width: 100%;
         gap: 6px;
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
         margin-left: 0;
       }
 
@@ -1818,12 +1791,10 @@
 
       .toolbar-status-row .filled-badge,
       .toolbar-status-row .draft-badge {
-        font-size: 0.7rem;
-        padding: 4px 8px;
-        min-height: 26px;
-        flex-shrink: 1;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        font-size: 0.75rem;
+        padding: 4px 9px;
+        flex-shrink: 0;
+        max-width: 100%;
       }
 
       .toolbar-search-row {
@@ -1905,8 +1876,8 @@
             </svg>
           </span>
           <span>DILOC Editor</span>
-          <button type="button" id="versionBadgeBtn" class="version-badge" role="button" tabindex="0" title="Cek versi &amp; pembaruan aplikasi" aria-label="Versi 1.12.3 — Cek pembaruan aplikasi" onclick="openVersionCheckModal()">
-            <span>v1.12.3</span>
+          <button type="button" id="versionBadgeBtn" class="version-badge" title="Cek versi &amp; pembaruan aplikasi" aria-label="Versi 1.12.4 — Cek pembaruan aplikasi" onclick="openVersionCheckModal()">
+            <span>v1.12.4</span>
             <span class="ui-icon icon-emerald" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
             </span>
@@ -2082,6 +2053,6 @@
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
   </button>
 
-  <script src="app.js?v=1.12.3"></script>
+  <script src="app.js?v=1.12.4"></script>
 </body>
 </html>

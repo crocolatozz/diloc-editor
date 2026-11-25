@@ -1,4 +1,4 @@
-const APP_VERSION = '1.12.3';
+const APP_VERSION = '1.12.4';
 const MASTER_SCHEMA_VERSION = '1.12.2';
 const VERSION_STORAGE_KEY = 'pmr_editor_installed_version';
 const POST_UPDATE_TOAST_KEY = 'pmr_editor_post_update_reload';
@@ -14,9 +14,9 @@ const EXPECTED_OPERATOR_COUNTS = {
   operator3: 45
 };
 const UPDATE_HIGHLIGHTS = [
-  'Penyeragaman seluruh stempel waktu (draft tersimpan & sinkronisasi Database Master) ke format waktu lokal 24-jam DD/MM/YY HH:mm yang aman dari Invalid Date',
-  'Penambahan skrip npm run lint berbasis node --check di package.json serta pemeriksaan sintaks otomatis sebelum build di workflow GitHub Actions',
-  'Pembaruan versi ke v1.12.3 serta penyegaran cache PWA (diloc-editor-v1.12.3)'
+  'Perbaikan pill Draft tersimpan agar melar penuh mengikuti format DD/MM/YY HH:mm dengan ukuran font proporsional dan aman di semua ukuran layar',
+  'Pembersihan dead code dan aturan gaya tidak terpakai untuk menjaga keandalan serta performa aplikasi',
+  'Perapian teks status, dialog, dan notifikasi agar lebih jelas, konsisten, dan ramah bagi operator lapangan'
 ];
 
 const SVG_ICON_PATHS = {
@@ -64,7 +64,6 @@ let modalCleanupFn = null;
 let swRegistration = null;
 let swHadControllerOnBoot = Boolean('serviceWorker' in navigator && navigator.serviceWorker.controller);
 let manualUpdateState = null;
-let updatePromptShown = false;
 let bgUpdatePromptShown = false;
 let bgUpdateToastShown = false;
 let pendingRemoteVersion = null;
@@ -311,7 +310,7 @@ function setVersionNotifDot(visible, remoteVer = '') {
         : `Versi ${APP_VERSION} — Cek pembaruan aplikasi`
     );
     btn.title = visible && remoteVer
-      ? `Pembaruan v${remoteVer} tersedia — klik untuk perbarui`
+      ? `Pembaruan v${remoteVer} tersedia — ketuk untuk perbarui`
       : 'Cek versi & pembaruan aplikasi';
   }
 }
@@ -350,10 +349,10 @@ async function checkBackgroundRemoteUpdate(force = false) {
     setVersionNotifDot(true, remoteVer);
     if (!bgUpdateToastShown) {
       bgUpdateToastShown = true;
-      showToast(`Pembaruan v${remoteVer} tersedia. Ketuk pil versi untuk update.`, 'warning', 4500);
+      showToast(`Pembaruan v${remoteVer} tersedia. Ketuk tombol versi untuk memperbarui.`, 'warning', 4500);
     }
     if (!bgUpdatePromptShown && !activeModalResolver) {
-      showAppUpdateCard({ oldVer: APP_VERSION, newVer: remoteVer, isBackgroundUpdate: true });
+      showAppUpdateCard({ newVer: remoteVer });
     }
   }
 }
@@ -401,10 +400,10 @@ function initPwaForceUpdate() {
         setVersionNotifDot(true, pendingRemoteVersion || '');
         if (!bgUpdateToastShown) {
           bgUpdateToastShown = true;
-          showToast('Pembaruan aplikasi siap diterapkan. Ketuk pil versi untuk reload.', 'warning', 4500);
+          showToast('Pembaruan aplikasi siap diterapkan. Ketuk tombol versi untuk muat ulang.', 'warning', 4500);
         }
         if (!manualUpdateState && !activeModalResolver) {
-          showAppUpdateCard({ oldVer: APP_VERSION, newVer: pendingRemoteVersion || null, isBackgroundUpdate: true });
+          showAppUpdateCard({ newVer: pendingRemoteVersion || null });
         }
       };
 
@@ -467,29 +466,20 @@ function initPwaForceUpdate() {
   });
 }
 
-async function showAppUpdateCard({ oldVer, newVer, isBackgroundUpdate = false }) {
-  if (isBackgroundUpdate) {
-    if (bgUpdatePromptShown) return;
-    bgUpdatePromptShown = true;
-  } else {
-    if (updatePromptShown) return;
-    updatePromptShown = true;
-  }
+async function showAppUpdateCard({ newVer = null } = {}) {
+  if (bgUpdatePromptShown) return;
+  bgUpdatePromptShown = true;
 
   const targetVerLabel = newVer ? `v${newVer}` : 'Terbaru';
-  const title = isBackgroundUpdate
-    ? `Update ${targetVerLabel} Tersedia`
-    : `Update Tersedia (v${newVer})`;
-  const intro = isBackgroundUpdate
-    ? `Versi baru DILOC Editor${newVer ? ` (v${newVer})` : ''} sudah tersedia. Muat ulang sekarang agar tampilan & fitur terbaru langsung aktif.`
-    : `Versi baru DILOC Editor siap digunakan${oldVer && oldVer !== newVer ? ` (pembaruan dari v${oldVer})` : ''}. Muat ulang sekarang agar tampilan & fitur terbaru langsung aktif.`;
+  const title = `Update ${targetVerLabel} Tersedia`;
+  const intro = `Versi baru DILOC Editor${newVer ? ` (v${newVer})` : ''} sudah tersedia. Muat ulang sekarang agar tampilan dan fitur terbaru langsung aktif.`;
 
   const choice = await showModal({
     type: 'success',
     isUpdateCard: true,
     title,
     paragraphs: [intro],
-    bullets: isBackgroundUpdate ? [] : UPDATE_HIGHLIGHTS,
+    bullets: [],
     bulletStyle: 'success',
     actions: [
       { label: 'Muat Ulang Sekarang', icon: 'refresh', value: 'reload', className: 'btn btn-primary' },
@@ -497,10 +487,6 @@ async function showAppUpdateCard({ oldVer, newVer, isBackgroundUpdate = false })
     ],
     dismissValue: 'later'
   });
-
-  if (!isBackgroundUpdate) {
-    localStorage.setItem(VERSION_STORAGE_KEY, APP_VERSION);
-  }
 
   if (choice === 'reload') {
     if (swRegistration && swRegistration.waiting) {
@@ -735,10 +721,6 @@ function parseLocalDateTimeInput(tsInput) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-function parseMasterSyncDate(tsInput) {
-  return parseLocalDateTimeInput(tsInput);
-}
-
 function formatLocalDateTime(tsInput) {
   const dateObj = parseLocalDateTimeInput(tsInput);
   if (!dateObj) return '';
@@ -761,9 +743,9 @@ function getMasterSyncMeta() {
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return null;
     const candidate = parsed.syncedAtMs ?? parsed.syncedAt;
-    const dateObj = parseMasterSyncDate(candidate);
+    const dateObj = parseLocalDateTimeInput(candidate);
     if (!dateObj) return null;
-    const formatted = formatMasterSyncTimestamp(dateObj);
+    const formatted = formatLocalDateTime(dateObj);
     if (!formatted) return null;
     return {
       syncedAt: dateObj.toISOString(),
@@ -776,7 +758,7 @@ function getMasterSyncMeta() {
 
 function saveMasterSyncMeta(dateInput = new Date()) {
   try {
-    const dateObj = parseMasterSyncDate(dateInput) || new Date();
+    const dateObj = parseLocalDateTimeInput(dateInput) || new Date();
     localStorage.setItem(MASTER_SYNC_META_KEY, JSON.stringify({
       syncedAt: dateObj.toISOString(),
       syncedAtMs: dateObj.getTime()
@@ -982,7 +964,7 @@ async function handlePushMasterToFirestore() {
   triggerHaptic(10);
 
   if (!navigator.onLine) {
-    showToast('Perangkat sedang offline. Push ke Firestore memerlukan koneksi internet.', 'warning', 3800);
+    showToast('Perangkat sedang offline. Kirim data master ke cloud memerlukan koneksi internet.', 'warning', 3800);
     return;
   }
 
@@ -1010,12 +992,12 @@ async function handlePushMasterToFirestore() {
 
   const confirmed = await showModal({
     type: 'warning',
-    title: 'Push Database Master ke Firestore?',
+    title: 'Kirim Database Master ke Cloud?',
     paragraphs: [
-      `Data master parameter lokal Op 1 (${d1.length}), Op 2 (${d2.length}), dan Op 3 (${d3.length}) akan dikirim ke Firestore collection "${FIRESTORE_MASTER_COLLECTION}" (${FIRESTORE_PROJECT_ID}).`
+      `Data master parameter lokal Operator 1 (${d1.length}), Operator 2 (${d2.length}), dan Operator 3 (${d3.length}) akan dikirim untuk memperbarui database master di cloud.`
     ],
     actions: [
-      { label: 'Ya, Push Sekarang', icon: 'cloudUpload', value: true, className: 'btn btn-primary' },
+      { label: 'Ya, Kirim Sekarang', icon: 'cloudUpload', value: true, className: 'btn btn-primary' },
       { label: 'Batal', icon: 'x', value: false, className: 'btn btn-ghost' }
     ],
     dismissValue: false
@@ -1029,7 +1011,7 @@ async function handlePushMasterToFirestore() {
   isPushingMaster = true;
   openVersionCheckModal();
   refreshMasterSyncBadgeUI();
-  showToast('Mengirim master parameter ke cloud...', 'info', 0);
+  showToast('Mengirim data master parameter ke cloud...', 'info', 0);
 
   const controller = typeof AbortController === 'function' ? new AbortController() : null;
   const timer = controller ? setTimeout(() => controller.abort(), 15000) : null;
@@ -1059,13 +1041,13 @@ async function handlePushMasterToFirestore() {
     if (timer) clearTimeout(timer);
     saveMasterSyncMeta(new Date());
     masterSyncStatus = 'synced';
-    showToast('Master parameter berhasil di-push ke Firestore', 'success', 3800);
+    showToast('Data master parameter berhasil dikirim ke cloud', 'success', 3800);
   } catch (err) {
     if (timer) clearTimeout(timer);
     const msg = err && err.name === 'AbortError'
-      ? 'Koneksi timeout saat menghubungi Firestore.'
+      ? 'Koneksi timeout saat menghubungi server cloud.'
       : (err && err.message ? err.message : 'Kesalahan jaringan');
-    showToast(`Gagal push ke Firestore: ${msg}`, 'error', 4800);
+    showToast(`Gagal mengirim ke cloud: ${msg}`, 'error', 4800);
   } finally {
     isPushingMaster = false;
     refreshMasterSyncBadgeUI();
@@ -1116,10 +1098,10 @@ async function openVersionCheckModal() {
     val.textContent = valueText;
     row.appendChild(lbl);
     row.appendChild(val);
-    return { row, val };
+    return row;
   };
 
-  metaCard.appendChild(makeMetaRow('Versi Terpasang', `v${APP_VERSION}`, 'emerald').row);
+  metaCard.appendChild(makeMetaRow('Versi Terpasang', `v${APP_VERSION}`, 'emerald'));
 
   // Database Master row with sync status on left & compact Push pill button on right
   const dbRow = document.createElement('div');
@@ -1139,7 +1121,7 @@ async function openVersionCheckModal() {
   pushBtn.type = 'button';
   pushBtn.id = 'masterPushBtn';
   pushBtn.className = 'btn-push-pill';
-  pushBtn.title = 'Kirim master parameter ke Firestore';
+  pushBtn.title = 'Kirim database master parameter ke cloud';
   pushBtn.appendChild(createSvgIcon('cloudUpload', 15));
   const pushLabel = document.createElement('span');
   pushLabel.textContent = 'Push';
@@ -1354,8 +1336,8 @@ async function openVersionCheckModal() {
 
     const swSupported = 'serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:');
     if (!swSupported) {
-      finishWithResult('danger', 'alertOctagon', 'Service Worker tidak tersedia di mode lokal/file://.');
-      showToast('Service Worker tidak tersedia di mode lokal.', 'error');
+      finishWithResult('danger', 'alertOctagon', 'Pembaruan otomatis tidak tersedia saat aplikasi dibuka langsung dari file lokal.');
+      showToast('Pembaruan otomatis tidak tersedia di mode file lokal.', 'error');
       return;
     }
 
@@ -1631,11 +1613,6 @@ function getLocalDateTimeFileTag() {
   return `${yyyy}-${mm}-${dd}_${hh}-${mi}`;
 }
 
-function getLocalDateTimeShort(dateInput = new Date()) {
-  const parsed = parseLocalDateTimeInput(dateInput) || new Date();
-  return formatLocalDateTime(parsed);
-}
-
 function setImportedFileBadge(text, isDraft = false) {
   currentBadgeText = text || '';
   const container = document.getElementById('importedFileInfo');
@@ -1907,8 +1884,8 @@ async function loadParameter(operatorKey) {
     if (errorBox) {
       const isFileProto = window.location.protocol === 'file:';
       const errMsg = isFileProto
-        ? 'File dibuka langsung via file:// sehingga browser memblokir pembacaan data parameter. Jalankan melalui GitHub Pages atau server lokal (XAMPP).'
-        : `Gagal memuat data parameter (${operatorKey}.json). Pastikan koneksi internet aktif saat pertama kali membuka aplikasi agar tersimpan offline.`;
+        ? 'Aplikasi dibuka langsung dari file lokal sehingga browser membatasi pembacaan data parameter. Jalankan melalui GitHub Pages atau server web.'
+        : `Gagal memuat data parameter (${operatorKey}). Pastikan koneksi internet aktif saat pertama kali membuka aplikasi agar tersimpan offline.`;
       errorBox.innerHTML = '';
       const errInner = document.createElement('div');
       errInner.className = 'load-error-inner';
@@ -2338,7 +2315,7 @@ function jumpToNextEmpty() {
     }
   }
 
-  showToast(`Mantap! Seluruh ${total} parameter ${OPERATOR_SHORT_NAMES[currentOperatorKey]} sudah terisi.`, 'warning');
+  showToast(`Semua ${total} parameter ${OPERATOR_SHORT_NAMES[currentOperatorKey]} sudah terisi.`, 'success');
 }
 
 function clearWorkspaceData() {
@@ -2362,7 +2339,7 @@ async function unloadActiveFileConfirm() {
   const opName = OPERATOR_SHORT_NAMES[currentOperatorKey] || currentOperatorKey.toUpperCase();
   const confirmed = await showModal({
     type: 'warning',
-    title: 'Lepas File & Mulai Kosongan Baru?',
+    title: 'Lepas File & Kosongkan Tabel?',
     paragraphs: [
       `File "${fileName}" akan dilepas dan seluruh sel pada ${opName} akan dikosongkan agar Anda bisa membuat data baru dari nol.`
     ],
@@ -2584,7 +2561,7 @@ async function importData(event) {
       // Format 1: DILOC Automator Native Preset (.json)
       if (json && typeof json === 'object' && json.format === 'diloc-automator-preset') {
         if (!Array.isArray(json.cells)) {
-          showToast('File JSON DILOC Automator tidak valid: daftar "cells" tidak ditemukan.', 'warning', 4500);
+          showToast('File JSON DILOC Automator tidak valid: daftar parameter tidak ditemukan.', 'warning', 4500);
           return;
         }
 
@@ -2632,7 +2609,7 @@ async function importData(event) {
             type: 'warning',
             title: `File Cocok dengan ${targetShort}`,
             paragraphs: [
-              `File "${file.name}" berisi ${total} cell (cocok dengan ${targetLabel}), sedangkan posisi aktif sekarang di ${currentShort}.`
+              `File "${file.name}" berisi ${total} sel (cocok dengan ${targetLabel}), sedangkan posisi aktif sekarang di ${currentShort}.`
             ],
             actions: [
               { label: `Pindah ke ${targetShort}`, icon: 'refresh', value: 'switch', className: 'btn btn-primary' },
@@ -2658,7 +2635,7 @@ async function importData(event) {
       }
 
       if (isJsonExt) {
-        showToast('Format JSON tidak sesuai standar DILOC Automator ("diloc-automator-preset").', 'warning', 4500);
+        showToast('Format file JSON bukan preset DILOC Automator yang valid.', 'warning', 4500);
         return;
       }
 
@@ -2760,7 +2737,7 @@ async function showImportResultModal(fileName, totalRead, populatedCount) {
   const bullets = [
     `File: ${fileName}`,
     `Target aktif: ${OPERATOR_LABELS[currentOperatorKey]}`,
-    `Terbaca ${totalRead} cell (${populatedCount} cell terisi)`
+    `Terbaca ${totalRead} sel (${populatedCount} sel terisi)`
   ];
 
   if (invalidItems.length > 0) {
@@ -2774,7 +2751,7 @@ async function showImportResultModal(fileName, totalRead, populatedCount) {
     title: 'Import Data Berhasil',
     bullets,
     bulletStyle: invalidItems.length > 0 ? 'warning' : 'success',
-    actions: [{ label: 'Siap, Lanjut', value: true, className: 'btn btn-primary' }],
+    actions: [{ label: 'Lanjut', value: true, className: 'btn btn-primary' }],
     dismissValue: true
   });
 }
@@ -2914,7 +2891,7 @@ async function validateBeforeExport() {
     const preview = gapsBeforeLast.slice(0, 4).map(e => `#${e.item.index} ${e.item.tag}`).join(', ');
     const more = gapsBeforeLast.length > 4 ? ` (+${gapsBeforeLast.length - 4} lainnya)` : '';
     const gapMsg = exportFormat === 'pmr'
-      ? `Ada ${gapsBeforeLast.length} sel kosong di TENGAH urutan (${preview}${more}). Sel kosong tetap mengirim Key.right dan berisiko menggeser kolom di DILOC.`
+      ? `Ada ${gapsBeforeLast.length} sel kosong di tengah urutan (${preview}${more}). Sel kosong tetap mengirim perpindahan kolom dan berisiko menggeser isian di DILOC.`
       : `Ada ${gapsBeforeLast.length} sel kosong di tengah urutan (${preview}${more}).`;
     issues.push(gapMsg);
   }
@@ -2924,7 +2901,7 @@ async function validateBeforeExport() {
     const firstTrailing = emptyParams.find(e => e.idx > lastFilledIdx);
     if (firstFixIdx === null && firstTrailing) firstFixIdx = firstTrailing.idx;
     const startLabel = firstTrailing ? `, mulai #${firstTrailing.item.index} ${firstTrailing.item.tag}` : '';
-    issues.push(`Baru terisi ${filledCount} dari ${total} cell (${trailingCount} sel terakhir belum diisi${startLabel}).`);
+    issues.push(`Baru terisi ${filledCount} dari ${total} sel (${trailingCount} sel terakhir belum diisi${startLabel}).`);
   }
 
   if (issues.length > 0) {
