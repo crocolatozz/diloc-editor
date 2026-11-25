@@ -1,5 +1,11 @@
 # Changelog — DILOC Editor
 
+## [v1.12.6] - 2026-11-25 (Bug Fix / Patch)
+- **Perbaikan Sticky Toolbar Bounce di iOS Safari**: Menghapus `overflow-x: clip` serta `animation-fill-mode: both` dari pembungkus langsung `.app-container` (mempertahankan penguncian horizontal secara utuh pada `html` & `body`), serta mengganti efek `backdrop-filter` pada `.quick-toolbar` dengan latar solid `#0f172a` dan `position: -webkit-sticky; position: sticky` sehingga toolbar menempel mulus tanpa efek mantul (*bounce/jitter*) saat scroll vertikal di WebKit iOS.
+- **Pembaruan Versi & Cache PWA**: Menaikkan versi ke `v1.12.6` di UI, `manifest.json`, `package.json`, `version.json`, `README.md`, `CHANGELOG.md`, dan cache Service Worker `diloc-editor-v1.12.6` dengan seluruh fitur inti tetap utuh.
+
+---
+
 ## [v1.12.5] - 2026-11-25 (Bug Fix / Patch)
 - **Perapian Kerapatan Sticky Toolbar**: Mereset `flex: 0 0 auto` pada `.toolbar-search-row` dan `.toolbar-status-row` di mode mobile vertikal (`< 768px`) agar tidak mewarisi `flex-basis: 200px` sebagai tinggi berlebih di bawah kolom pencarian **`Cari tag / equipment...`**, sekaligus merapatkan padding dan jarak antar baris tanpa memotong pill **`Draft tersimpan`** (`0.75rem`).
 - **Penguncian Pergeseran Horizontal (Native App Feel)**: Menambahkan `overflow-x: clip` serta `overscroll-behavior-x: none` pada `html`, `body`, dan `.app-container` (tanpa mengganggu `position: sticky` maupun scroll vertikal), menyelaraskan margin negatif `.quick-toolbar` dengan variabel `--page-pad-x` di layar `< 400px`, dan mengurung *horizontal scroll* tabel desktop di `.excel-container` dengan `overscroll-behavior-x: contain`.

@@ -1,4 +1,4 @@
-const APP_VERSION = '1.12.5';
+const APP_VERSION = '1.12.6';
 const MASTER_SCHEMA_VERSION = '1.12.2';
 const VERSION_STORAGE_KEY = 'pmr_editor_installed_version';
 const POST_UPDATE_TOAST_KEY = 'pmr_editor_post_update_reload';
@@ -14,9 +14,8 @@ const EXPECTED_OPERATOR_COUNTS = {
   operator3: 45
 };
 const UPDATE_HIGHLIGHTS = [
-  'Penghapusan ruang kosong di bawah kolom pencarian sticky toolbar agar jarak atas-bawah rapat dan proporsional tanpa memotong pill Draft tersimpan',
-  'Penguncian pergeseran serta goyangan horizontal (overflow-x: clip dan overscroll-behavior-x: none) agar antarmuka terasa solid seperti aplikasi native',
-  'Penyempurnaan siklus pembaruan PWA: aset versi baru diunduh di latar belakang dan tampilan baru baru aktif setelah pengguna menekan tombol Update'
+  'Perbaikan efek mantul (bounce/jitter) pada sticky toolbar saat scroll vertikal di iOS Safari tanpa mengganggu penguncian geser horizontal',
+  'Menjaga seluruh fungsi inti, validasi sel kosong, sinkronisasi master Firestore, serta mekanisme pembaruan PWA tetap stabil'
 ];
 
 const SVG_ICON_PATHS = {
